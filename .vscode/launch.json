@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-SistemaCafeteriaApplication<sistema_cafeteria>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.sedif.sistema_cafeteria.SistemaCafeteriaApplication",
+            "projectName": "sistema_cafeteria",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
