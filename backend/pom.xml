@@ -5,14 +5,14 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.0.8</version>
+		<version>4.0.6</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.sedif</groupId>
 	<artifactId>sistema_cafeteria</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
+	<name>Sistema de Cafetería</name>
+	<description>Sistema de gestión de la cafetería</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -28,6 +28,8 @@
 	</scm>
 	<properties>
 		<java.version>17</java.version>
+		<!-- jjwt no lo gestiona el parent de Spring Boot: se fija aqui -->
+		<jjwt.version>0.12.6</jjwt.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -41,6 +43,33 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc</artifactId>
+		</dependency>
+		<!-- Bean Validation: habilita @Valid y las restricciones de los *Request -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<!-- Flyway: versionado del esquema de base de datos.
+
+		     Se declara el STARTER, no solo flyway-core. En Spring Boot 4 las
+		     autoconfiguraciones viven en modulos propios: con flyway-core a
+		     secas las clases estan en el classpath pero Boot nunca ejecuta las
+		     migraciones, y spring.flyway.enabled=true no da ningun aviso de
+		     que se esta ignorando. El sintoma era una base recien creada que
+		     quedaba vacia y un arranque que fallaba por tablas inexistentes. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-flyway</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
+		<!-- Bucket4j: cubetas del filtro anti fuerza bruta -->
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-core</artifactId>
+			<version>8.14.0</version>
 		</dependency>
 
 		<dependency>
@@ -68,6 +97,45 @@
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
+		<dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>1.3.32</version>
+        </dependency>
+
+
+		<dependency>
+            <groupId>org.telegram</groupId>
+            <artifactId>telegrambots-spring-boot-starter</artifactId>
+            <version>6.8.0</version>
+        </dependency>
+
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi-ooxml</artifactId>
+			<version>5.2.3</version>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -75,6 +143,14 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</exclude>
+					</excludes>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
