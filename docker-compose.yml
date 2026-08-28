@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: America/Mexico_City
     ports:
-      # Exponemos el puerto 5434 en tu PC para que no choque con 
+      # Exponemos el puerto 5437 en tu PC para que no choque con 
       # otras bases de datos locales o contenedores previos.
       - "5437:5432"
     volumes:
