@@ -23,7 +23,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String identificador) throws UsernameNotFoundException {
         Usuario usuario = usuarioRepository
-                .findByUsername(identificador)
+                .buscarUsuario(identificador)
                 .orElseThrow(() -> new UsernameNotFoundException("Credenciales invalidas."));
 
         String rol = usuario.getRol() != null ? usuario.getRol().name() : "SIN_ROL";

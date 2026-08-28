@@ -24,7 +24,7 @@ public class AuthService {
     public JwtResponse iniciarSesion(LoginRequest request) {
 
         Usuario usuario = usuarioRepository
-                .findByUsername(request.identificador())
+                .buscarUsuario(request.identificador())
                 .orElseThrow(() -> new IllegalArgumentException(MessageConstants.CREDENCIALES_INVALIDAS));
 
         if (!passwordEncoder.matches(request.password(), usuario.getPassword())) {
@@ -45,12 +45,11 @@ public class AuthService {
                 token,
                 "Autenticacion exitosa.",
                 vistasPermitidas,
-                null // El areaId se omite ya que no existe en el nuevo Usuario
+                null
         );
     }
 
     public List<VistaDTO> obtenerVistasPermitidas(Usuario usuario) {
-        // Retorna lista vacía por ahora. Aquí puedes programar la lógica del menú más adelante.
         return List.of(); 
     }
 }

@@ -82,11 +82,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     private Optional<Usuario> buscarUsuario(String identificador) {
-        Optional<Usuario> usuario = usuarioRepository.findByUsername(identificador);
+        Optional<Usuario> usuario = usuarioRepository.buscarUsuario(identificador);
         if (usuario.isPresent()) {
             return usuario;
         }
-        return usuarioRepository.findByUsername(identificador.toLowerCase().trim());
+        return usuarioRepository.buscarUsuario(identificador.toLowerCase().trim());
     }
 
     @Override
