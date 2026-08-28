@@ -112,7 +112,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Rutas publicas (Login, Salud, WebSockets si los usas)
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/auth/**").permitAll() 
+                .requestMatchers("/api/auth/**").permitAll() // <--- RUTA AGREGADA PARA POSTMAN
                 .requestMatchers("/api/salud").permitAll()
 
                 // Rutas exclusivas para administracion (Reportes, Configuracion, Borrado de productos)
