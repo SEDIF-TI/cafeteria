@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  db-cafeteria:
+    image: postgres:17
+    container_name: postgres_cafeteria
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Mexico_City
+    ports:
+      # Exponemos el puerto 5434 en tu PC para que no choque con 
+      # otras bases de datos locales o contenedores previos.
+      - "5437:5432"
+    volumes:
+      - pgdata_cafeteria:/var/lib/postgresql/data
+
+volumes:
+  pgdata_cafeteria:
+    name: pgdata_cafeteria
