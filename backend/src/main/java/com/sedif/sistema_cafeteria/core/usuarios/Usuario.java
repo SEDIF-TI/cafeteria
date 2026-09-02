@@ -34,7 +34,6 @@ public class Usuario {
     @Column(name = "b_activo")
     private boolean activo = true;
 
-    // Al colocar @Embedded al final, Hibernate crea estas columnas en último orden
     @Embedded
     private Auditable auditable = new Auditable();
 }

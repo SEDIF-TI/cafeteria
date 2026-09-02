@@ -1,48 +1,33 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useContext } from 'react';
-import { ThemeProvider, CssBaseline } from '@mui/material';
-import { AuthContext, AuthProvider } from './context/AuthContext.jsx';
-import theme from './theme/theme';
+import { AuthProvider } from './context/AuthContext';
+import MainLayout from './components/MainLayout';
+import Usuarios from './pages/Administracion/Usuarios'; 
+import Login from './pages/Login/Login';
 
-// Componentes y Vistas
-import MainLayout from "./components/MainLayout.jsx";
-import Login from "./pages/Login/Login.jsx";
-
-// Componente auxiliar para proteger rutas privadas
-function PrivateRoute({ children }) {
-  const { user, loading } = useContext(AuthContext);
-  if (loading) return null; // O un indicador de carga mientras verifica la sesión
-  return user ? children : <Navigate to="/login" replace />;
-}
-
-export default function App() {
+function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <BrowserRouter>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Ruta pública del Login (es la primera en verse al iniciar) */}
-            <Route path="/" element={<Login />} />
-            <Route path="/login" element={<Login />} />
+        <Routes>
+          {/* Ruta pública */}
+          <Route path="/login" element={<Login />} />
 
-            {/* Rutas privadas protegidas con el menú lateral */}
-            <Route path="/dashboard" element={
-              <PrivateRoute>
-                <MainLayout>
-                  <div style={{ padding: '20px' }}>
-                    <h1>Bienvenido al Sistema</h1>
-                    <p>El menú lateral se construirá según los permisos de tu usuario.</p>
-                  </div>
-                </MainLayout>
-              </PrivateRoute>
-            } />
+          {/* Redirección automática al entrar a /dashboard */}
+          <Route path="/dashboard" element={<Navigate to="/dashboard/usuarios" replace />} />
 
-            {/* Redirección por defecto si la URL no existe */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
+          {/* Ruta del módulo de usuarios */}
+          <Route path="/dashboard/usuarios" element={
+            <MainLayout>
+              <Usuarios />
+            </MainLayout>
+          } />
+          
+          {/* Si la ruta no existe, redirige al login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
       </AuthProvider>
-    </ThemeProvider>
+    </BrowserRouter>
   );
 }
+
+export default App;

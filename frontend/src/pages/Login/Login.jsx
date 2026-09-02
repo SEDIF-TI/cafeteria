@@ -1,103 +1,174 @@
 import { useState, useContext } from 'react';
-import { Box, Paper, TextField, Button, Typography, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../../context/AuthContext';
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
+  Paper,
+  InputAdornment,
+  IconButton,
+  Alert
+} from '@mui/material';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
-import { AuthContext } from '../../context/AuthContext.jsx';
 import logoPuebla from '../../assets/logo-puebla.png';
 
-export default function Login() {
-    const [identificador, setIdentificador] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [cargando, setCargando] = useState(false);
-    
-    const { login } = useContext(AuthContext);
-    const navigate = useNavigate();
+const Login = () => {
+  const [identificador, setIdentificador] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setCargando(true);
-        
-        try {
-            const userData = await login(identificador, password);
-            if (userData.passwordTemporal) {
-                navigate('/cambiar-password');
-            } else {
-                navigate('/dashboard'); // Redirige al menú principal tras autenticarse
-            }
-        } catch (err) {
-            setError('Credenciales incorrectas o error de conexión al servidor.');
-        } finally {
-            setCargando(false);
-        }
-    };
+  const { login } = useContext(AuthContext);
+  const navigate = useNavigate();
 
-    return (
-        <Box 
-            sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                minHeight: '100vh',
-                padding: 2,
-            }}
-        >
-            <Paper 
-                elevation={3} 
-                sx={{
-                    padding: 4,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    maxWidth: 400,
-                    width: '100%',
-                    borderRadius: 3,
-                }}
-            >
-                <Box sx={{ marginBottom: 3, textAlign: 'center' }}>
-                    <Box component="img" src={logoPuebla} alt="Logotipo" sx={{ maxHeight: 60, width: 'auto', objectFit: 'contain' }} />
-                </Box>
-                
-                <Typography variant="h5" align="center" gutterBottom fontWeight="bold" color="primary">
-                    Iniciar Sesión
-                </Typography>
-                
-                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-                
-                <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-                    <TextField
-                        fullWidth
-                        label="Usuario o Correo"
-                        variant="outlined"
-                        margin="normal"
-                        value={identificador}
-                        onChange={(e) => setIdentificador(e.target.value)}
-                        required
-                        autoFocus
-                    />
-                    <TextField
-                        fullWidth
-                        label="Contraseña"
-                        type="password"
-                        variant="outlined"
-                        margin="normal"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                    <Button
-                        type="submit"
-                        fullWidth
-                        variant="contained"
-                        color="primary"
-                        sx={{ mt: 3, mb: 2, paddingY: 1.2, fontWeight: 'bold' }}
-                        disabled={cargando}
-                    >
-                        {cargando ? 'Verificando...' : 'Entrar'}
-                    </Button>
-                </form>
-            </Paper>
+  const handleClickShowPassword = () => setShowPassword((show) => !show);
+  const handleMouseDownPassword = (event) => event.preventDefault();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      await login(identificador, password);
+      navigate('/dashboard');
+    } catch (err) {
+      setError('Credenciales incorrectas o error de conexión al servidor.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        backgroundColor: '#f8f9fa',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 2,
+      }}
+    >
+      <Paper
+        elevation={0}
+        sx={{
+          padding: { xs: 3, md: 5 },
+          width: '100%',
+          maxWidth: 420,
+          borderRadius: 3,
+          boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.05)',
+          textAlign: 'center',
+        }}
+      >
+        <Box sx={{ mb: 3 }}>
+          <img
+            src={logoPuebla}
+            alt="Gobierno del Estado"
+            style={{ maxHeight: '120px', objectFit: 'contain' }}
+          />
         </Box>
-    );
-}
+
+        <Typography
+          variant="h5"
+          component="h1"
+          sx={{ fontWeight: 600, color: '#0f172a', mb: 1, fontFamily: 'sans-serif' }}
+        >
+          Sistema de Cafetería
+        </Typography>
+        <Typography variant="body2" sx={{ color: '#64748b', mb: 4 }}>
+          Ingresa tus credenciales para continuar
+        </Typography>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 3, textAlign: 'left', borderRadius: '8px' }}>
+            {error}
+          </Alert>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <TextField
+            fullWidth
+            label="Correo electrónico o usuario *"
+            variant="outlined"
+            margin="normal"
+            value={identificador}
+            onChange={(e) => setIdentificador(e.target.value)}
+            disabled={isLoading}
+            sx={{ 
+              mb: 2, 
+              '& .MuiOutlinedInput-root': { borderRadius: '8px' } 
+            }}
+          />
+
+          <TextField
+            fullWidth
+            label="Contraseña *"
+            type={showPassword ? 'text' : 'password'}
+            variant="outlined"
+            margin="normal"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={isLoading}
+            sx={{ 
+              mb: 3, 
+              '& .MuiOutlinedInput-root': { borderRadius: '8px' } 
+            }}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleClickShowPassword}
+                      onMouseDown={handleMouseDownPassword}
+                      edge="end"
+                      sx={{ color: '#64748b' }}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }
+            }}
+          />
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            disabled={isLoading}
+            sx={{
+              backgroundColor: '#691c32',
+              color: 'white',
+              padding: '12px',
+              fontSize: '1rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              borderRadius: '8px',
+              boxShadow: 'none',
+              '&:hover': {
+                backgroundColor: '#521526',
+                boxShadow: 'none',
+              },
+            }}
+          >
+            {isLoading ? 'Iniciando...' : 'Iniciar sesión'}
+          </Button>
+        </form>
+      </Paper>
+
+      <Typography variant="caption" sx={{ mt: 3, color: '#94a3b8' }}>
+        SEDIF · Sistema de Cafetería
+      </Typography>
+    </Box>
+  );
+};
+
+export default Login;
