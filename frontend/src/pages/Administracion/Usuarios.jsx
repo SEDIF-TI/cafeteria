@@ -1,52 +1,57 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
-  Typography,
   Button,
+  Container,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  Chip,
+  Typography,
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   TextField,
   MenuItem,
-  Switch,
-  Alert
+  Chip,
+  Stack
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import api from '../../api/axiosClient'; // Ajusta la ruta si es necesario
+
+import IconButton from '@mui/material/IconButton';
+import EditIcon from '@mui/icons-material/Edit';
+import PersonOffIcon from '@mui/icons-material/PersonOff';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
+  const [editingUserId, setEditingUserId] = useState(null);
+  
   const [formData, setFormData] = useState({
     nombre: '',
     username: '',
-    rol: 'CAJERO'
+    rol: 'ADMIN'
   });
-  
-  const [passwordCreada, setPasswordCreada] = useState(null);
 
-  // Función auxiliar para obtener el token
-  const getToken = () => localStorage.getItem('token'); // Asegúrate de que tu login guarda el token con esta clave
+  const [passwordCreada, setPasswordCreada] = useState(null);
+  
+  const [modalMensaje, setModalMensaje] = useState({
+    open: false,
+    titulo: '',
+    texto: '',
+    esError: false
+  });
 
   const fetchUsuarios = async () => {
     try {
-      const response = await fetch('/api/v1/usuarios', {
-        headers: {
-          'Authorization': `Bearer ${getToken()}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUsuarios(data);
-      }
+      const response = await api.get('/usuarios');
+      setUsuarios(response.data);
     } catch (error) {
       console.error('Error al cargar usuarios:', error);
     }
@@ -56,142 +61,269 @@ export default function Usuarios() {
     fetchUsuarios();
   }, []);
 
-  const handleCreate = async () => {
-    try {
-      const response = await fetch('/api/v1/usuarios', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getToken()}`
-        },
-        body: JSON.stringify(formData)
-      });
-      
-      if (response.ok) {
-        const nuevoUsuario = await response.json();
-        setOpenDialog(false);
-        setFormData({ nombre: '', username: '', rol: 'CAJERO' });
-        
-        setPasswordCreada({
-          nombre: nuevoUsuario.nombre,
-          password: nuevoUsuario.passwordTemporal
-        });
+  const handleOpenCreate = () => {
+    setEditingUserId(null);
+    setFormData({ nombre: '', username: '', rol: 'ADMIN' });
+    setOpenDialog(true);
+  };
 
-        fetchUsuarios();
+  const handleOpenEdit = (usuario) => {
+    setEditingUserId(usuario.id);
+    setFormData({
+      nombre: usuario.nombre || '',
+      username: usuario.username || '',
+      rol: usuario.rol || 'ADMIN'
+    });
+    setOpenDialog(true);
+  };
+
+  const handleSubmit = async () => {
+    try {
+      let response;
+      let mensajeExito = '';
+
+      if (editingUserId) {
+        const payload = { ...formData, id: editingUserId };
+        response = await api.put(`/usuarios/${editingUserId}`, payload);
+        mensajeExito = 'El usuario se ha actualizado correctamente.';
       } else {
-        console.error('Error del servidor:', response.status);
+        response = await api.post('/usuarios', formData);
+        mensajeExito = 'El usuario se ha creado exitosamente.';
       }
+      
+      const data = response.data.data || response.data;
+      setOpenDialog(false);
+      
+      if (!editingUserId && data && data.passwordTemporal) {
+        setPasswordCreada({
+          nombre: data.nombre,
+          password: data.passwordTemporal
+        });
+      } else {
+        setModalMensaje({
+          open: true,
+          titulo: 'Éxito',
+          texto: mensajeExito,
+          esError: false
+        });
+      }
+
+      fetchUsuarios();
     } catch (error) {
-      console.error('Error de red al crear usuario:', error);
+      console.error('Error del servidor al guardar usuario:', error);
+      const errorMensaje = error.response?.data?.message || 
+                           error.response?.data?.error || 
+                           'Ocurrió un error al procesar la solicitud.';
+
+      setModalMensaje({
+        open: true,
+        titulo: 'Atención',
+        texto: errorMensaje,
+        esError: true
+      });
     }
   };
 
-  const handleToggleEstado = async (id, activoActual) => {
+  // Función para cambiar el estado del usuario
+  const handleToggleEstado = async (usuario) => {
     try {
-      const response = await fetch(`/api/v1/usuarios/${id}/estado`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getToken()}`
-        },
-        body: JSON.stringify(!activoActual)
+      const nuevoEstado = !usuario.activo;
+      await api.put(`/usuarios/${usuario.id}/estado`, nuevoEstado, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
-      if (response.ok) {
-        fetchUsuarios();
-      }
+      
+      setModalMensaje({
+        open: true,
+        titulo: 'Estado Actualizado',
+        texto: `El usuario ahora se encuentra ${nuevoEstado ? 'Activo' : 'Inactivo'}.`,
+        esError: false
+      });
+      
+      fetchUsuarios();
     } catch (error) {
-      console.error('Error al cambiar estado:', error);
+      console.error('Error al cambiar el estado:', error);
+      setModalMensaje({
+        open: true,
+        titulo: 'Error',
+        texto: 'No se pudo actualizar el estado del usuario.',
+        esError: true
+      });
     }
   };
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, alignItems: 'center' }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b' }}>
-          Gestión de Personal
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => { setPasswordCreada(null); setOpenDialog(true); }}
-          sx={{ backgroundColor: '#691c32', '&:hover': { backgroundColor: '#501525' } }}
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      {/* Encabezado: Título a la izquierda, Botón a la derecha */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+        <Button 
+          variant="contained" 
+          color="primary"
+          align="left"
+          onClick={handleOpenCreate}
+          sx={{ py: 1, px: 3, fontWeight: 'bold' }} 
         >
           Nuevo Usuario
         </Button>
       </Box>
 
-      {passwordCreada && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setPasswordCreada(null)}>
-          ¡Usuario <strong>{passwordCreada.nombre}</strong> creado exitosamente! Su contraseña temporal es: <strong>{passwordCreada.password}</strong> (Cópiala ahora, no se volverá a mostrar).
-        </Alert>
-      )}
+      <br />
 
-      <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: '12px' }}>
+      {/* Tabla */}
+      <TableContainer component={Paper} elevation={3}>
         <Table>
-          <TableHead sx={{ backgroundColor: '#f8fafc' }}>
+          <TableHead sx={{ backgroundColor: '#f5f5f5' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>Nombre</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Usuario</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Rol</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Estado</TableCell>
-              <TableCell sx={{ fontWeight: 600, textAlign: 'right' }}>Acciones</TableCell>
+              <TableCell><b>Nombre</b></TableCell>
+              <TableCell><b>Usuario</b></TableCell>
+              <TableCell><b>Rol</b></TableCell>
+              <TableCell align="center"><b>Estado</b></TableCell>
+              <TableCell align="center" sx={{ width: '150px' }}><b>Acciones</b></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {usuarios.map((u) => (
-              <TableRow key={u.id}>
-                <TableCell>{u.nombre}</TableCell>
-                <TableCell>{u.username}</TableCell>
-                <TableCell>
-                  <Chip label={u.rol} size="small" color={u.rol === 'ADMIN' ? 'error' : 'primary'} />
-                </TableCell>
-                <TableCell>
-                  <Chip label={u.activo ? 'Activo' : 'Inactivo'} size="small" color={u.activo ? 'success' : 'default'} />
-                </TableCell>
-                <TableCell sx={{ textAlign: 'right' }}>
-                  <Switch
-                    checked={u.activo}
-                    onChange={() => handleToggleEstado(u.id, u.activo)}
-                    color="success"
+            {usuarios.map((usuario) => (
+              <TableRow key={usuario.id} hover>
+                <TableCell>{usuario.nombre}</TableCell>
+                <TableCell>{usuario.username}</TableCell>
+                <TableCell>{usuario.rol}</TableCell>
+                <TableCell align="center">
+                  <Chip 
+                    label={usuario.activo ? 'Activo' : 'Inactivo'} 
+                    color={usuario.activo ? 'success' : 'default'}
+                    variant={usuario.activo ? 'filled' : 'outlined'}
+                    size="small"
+                    sx={{ minWidth: '80px', fontWeight: 'bold' }}
                   />
+                </TableCell>
+                <TableCell align="center">
+                  {/* Contenedor Stack para alinear y centrar perfectamente los iconos */}
+                  <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
+                    <IconButton 
+                      color="primary"
+                      onClick={() => handleOpenEdit(usuario)}
+                      title="Editar"
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton 
+                      color={usuario.activo ? 'error' : 'success'}
+                      onClick={() => handleToggleEstado(usuario)}
+                      title={usuario.activo ? 'Desactivar' : 'Activar'}
+                    >
+                      {usuario.activo ? <PersonOffIcon /> : <PersonAddIcon />}
+                    </IconButton>
+                  </Stack>
                 </TableCell>
               </TableRow>
             ))}
+            
+            {usuarios.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No hay usuarios registrados.
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>
 
+      {/* Modal de Creación / Edición */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Registrar Nuevo Personal</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-          <TextField
-            label="Nombre Completo"
-            fullWidth
-            value={formData.nombre}
-            onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-          />
-          <TextField
-            label="Nombre de Usuario"
-            fullWidth
-            value={formData.username}
-            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-          />
-          <TextField
-            select
-            label="Rol"
-            fullWidth
-            value={formData.rol}
-            onChange={(e) => setFormData({ ...formData, rol: e.target.value })}
-          >
-            <MenuItem value="ADMIN">Administrador</MenuItem>
-            <MenuItem value="CAJERO">Cajero</MenuItem>
-          </TextField>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>
+          {editingUserId ? 'Editar Usuario' : 'Nuevo Usuario'}
+        </DialogTitle>
+        <DialogContent>
+          <Box display="flex" flexDirection="column" gap={3} mt={2}>
+            <TextField
+              label="Nombre Completo"
+              fullWidth
+              value={formData.nombre}
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+            />
+            <TextField
+              label="Nombre de Usuario (Login)"
+              fullWidth
+              value={formData.username}
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+            />
+            <TextField
+              select
+              label="Rol del Sistema"
+              fullWidth
+              value={formData.rol}
+              onChange={(e) => setFormData({ ...formData, rol: e.target.value })}
+            >
+              <MenuItem value="ADMIN">ADMIN</MenuItem>
+              <MenuItem value="CAJERO">CAJERO</MenuItem>
+              <MenuItem value="OPERADOR">OPERADOR</MenuItem>
+            </TextField>
+          </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenDialog(false)} color="inherit">Cancelar</Button>
-          <Button onClick={handleCreate} variant="contained" sx={{ backgroundColor: '#691c32' }}>Guardar</Button>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setOpenDialog(false)} color="inherit" sx={{ fontWeight: 'bold' }}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} variant="contained" color="primary" sx={{ fontWeight: 'bold' }}>
+            Guardar
+          </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+
+      {/* Modal General para Confirmaciones y Errores */}
+      <Dialog 
+        open={modalMensaje.open} 
+        onClose={() => setModalMensaje({ ...modalMensaje, open: false })}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ color: modalMensaje.esError ? 'error.main' : 'success.main', fontWeight: 'bold' }}>
+          {modalMensaje.titulo}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mt: 1, color: 'text.primary', fontSize: '1.1rem' }}>
+            {modalMensaje.texto}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setModalMensaje({ ...modalMensaje, open: false })} 
+            variant="contained" 
+            color={modalMensaje.esError ? 'error' : 'primary'}
+            autoFocus
+          >
+            Aceptar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal específico para la contraseña temporal en la creación */}
+      {passwordCreada && (
+        <Dialog open={true} onClose={() => setPasswordCreada(null)}>
+          <DialogTitle sx={{ color: 'success.main', fontWeight: 'bold' }}>
+            Usuario Creado Exitosamente
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ color: 'text.primary', mt: 1 }}>
+              El usuario <b>{passwordCreada.nombre}</b> se ha creado correctamente.<br /><br />
+              Su contraseña temporal es: 
+              <Typography variant="h6" component="span" sx={{ display: 'block', my: 2, textAlign: 'center', p: 1, backgroundColor: '#f0f0f0', borderRadius: 1, letterSpacing: 2 }}>
+                {passwordCreada.password}
+              </Typography>
+              <i>Asegúrese de copiarla y compartirla con el usuario, ya que no se volverá a mostrar por motivos de seguridad.</i>
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPasswordCreada(null)} variant="contained" color="primary">
+              Entendido
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+    </Container>
   );
 }

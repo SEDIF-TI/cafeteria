@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = async (identificador, password) => {
-        // 1. Restauramos el nombre del campo a "identificador" tal como lo exige el LoginRequest de Java
+    // 1. Restauramos el nombre del campo a "identificador" tal como lo exige el LoginRequest de Java
         const response = await api.post('/api/v1/auth/login', { 
             identificador: identificador, 
             password: password 
