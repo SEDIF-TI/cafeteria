@@ -1,6 +1,5 @@
-import { useState, useContext } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../../context/AuthContext';
 import {
   Box,
   Button,
@@ -13,6 +12,7 @@ import {
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import api from '../../api/axiosClient';
 
 import logoPuebla from '../../assets/logo-puebla.png';
 
@@ -23,7 +23,6 @@ const Login = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
@@ -35,7 +34,17 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      await login(identificador, password);
+      // Envía la propiedad 'identificador' que el LoginRequest del backend espera exactamente[cite: 28]
+      const response = await api.post('/auth/login', {
+        identificador,
+        password
+      });
+
+      const token = response.data.data?.token || response.data.token;
+      if (token) {
+        localStorage.setItem('token', token);
+      }
+
       navigate('/dashboard');
     } catch (err) {
       setError('Credenciales incorrectas o error de conexión al servidor.');

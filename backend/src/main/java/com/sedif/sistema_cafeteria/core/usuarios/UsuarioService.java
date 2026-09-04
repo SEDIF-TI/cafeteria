@@ -66,4 +66,23 @@ public class UsuarioService {
                 passwordTemporal
         );
     }
+
+    @Transactional
+    public UsuarioResponse actualizar(Long id, UsuarioRequest request) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        // Validar si el nuevo username ya pertenece a otro usuario registrado
+        if (!usuario.getUsername().equals(request.username()) && 
+            usuarioRepository.existsByUsername(request.username())) {
+            throw new IllegalArgumentException("El nombre de usuario ya está registrado");
+        }
+
+        usuario.setNombre(request.nombre());
+        usuario.setUsername(request.username());
+        usuario.setRol(request.rol());
+
+        Usuario actualizado = usuarioRepository.save(usuario);
+        return mapearADTO(actualizado, null);
+    }
 }

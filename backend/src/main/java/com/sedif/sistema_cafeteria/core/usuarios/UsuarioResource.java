@@ -35,4 +35,12 @@ public class UsuarioResource {
         UsuarioResponse response = usuarioService.cambiarEstado(id, activo);
         return ResponseEntity.ok(response);
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<UsuarioResponse> actualizar(
+            @PathVariable Long id,
+            @Valid @RequestBody UsuarioRequest request) {
+        UsuarioResponse response = usuarioService.actualizar(id, request);
+        return ResponseEntity.ok(response);
+    }
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   Box,
   Drawer,
@@ -25,10 +25,11 @@ import InventoryIcon from '@mui/icons-material/Inventory';
 import GroupIcon from '@mui/icons-material/Group';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 
 const drawerWidth = 260;
 
-export default function MainLayout({ children }) {
+export default function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,6 +50,7 @@ export default function MainLayout({ children }) {
     { text: 'Ventas y Caja', icon: <PointOfSaleIcon />, path: '/dashboard/ventas' },
     { text: 'Inventario (Prod. Terminados)', icon: <InventoryIcon />, path: '/dashboard/inventario' },
     { text: 'Personal', icon: <GroupIcon />, path: '/dashboard/usuarios' },
+    { text: 'Deudores', icon: <MoneyOffIcon />, path: '/dashboard/deudores' },
   ];
 
   const drawerContent = (
@@ -61,7 +63,6 @@ export default function MainLayout({ children }) {
       <Divider sx={{ borderColor: '#f1f5f9' }} />
       <List sx={{ px: 2, mt: 2 }}>
         {menuItems.map((item) => {
-          // Ajustamos la lógica para que el menú se marque activo si la ruta actual incluye el path del ítem
           const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
           return (
             <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
@@ -189,7 +190,7 @@ export default function MainLayout({ children }) {
           minHeight: 'calc(100vh - 64px)'
         }}
       >
-        {children}
+        <Outlet />
       </Box>
     </Box>
   );
