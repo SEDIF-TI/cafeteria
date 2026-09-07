@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   Box,
@@ -27,20 +27,31 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 
+import { AuthContext } from '../context/AuthContext';
+
 const drawerWidth = 260;
 
 export default function MainLayout() {
+  const { logout } = useContext(AuthContext);
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // The useEffect hook must be inside the component body
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login', { replace: true });
+    }
+  }, [navigate]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
+    logout();
+    navigate('/login', { replace: true });
   };
 
   const menuItems = [
