@@ -1,14 +1,13 @@
 import axios from 'axios';
 
-const axiosClient = axios.create({
-  baseURL: 'http://localhost:8080/api/v1',
+const api = axios.create({
+  baseURL: 'http://localhost:8080',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Interceptor para añadir el token Bearer automáticamente si existe
-axiosClient.interceptors.request.use(
+api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -19,4 +18,4 @@ axiosClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-export default axiosClient;
+export default api;

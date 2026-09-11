@@ -1,254 +1,223 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from 'react';
+import api from '../../api/axiosClient';
 import {
   Box,
-  Button,
-  Container,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Typography,
+  Paper,
+  Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogContentText,
   DialogActions,
   TextField,
-  Stack,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
   Chip
 } from '@mui/material';
-import IconButton from '@mui/material/IconButton';
-import EditIcon from '@mui/icons-material/Edit';
+import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-
-// --- DATOS SIMULADOS (MOCKS) ---
-const CATEGORIAS_INICIALES = [
-  { id: 1, nombre: 'Bebidas Calientes', descripcion: 'Cafés, tés e infusiones', activa: true },
-  { id: 2, nombre: 'Bebidas Frías', descripcion: 'Refrescos, jugos y aguas de sabor', activa: true },
-  { id: 3, nombre: 'Comida Rápida', descripcion: 'Sándwiches, tortas y molletes', activa: true },
-  { id: 4, nombre: 'Postres', descripcion: 'Pasteles, galletas y pan dulce', activa: true },
-];
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 export default function Categorias() {
-  const [categorias, setCategorias] = useState(CATEGORIAS_INICIALES);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [editingId, setEditingId] = useState(null);
+  const [categorias, setCategorias] = useState([]);
+  const [loading, setLoading] = useState(true);
   
-  const [formData, setFormData] = useState({
-    nombre: '',
-    descripcion: ''
-  });
+  // Estados para el Modal de Agregar
+  const [openAddModal, setOpenAddModal] = useState(false);
+  const [nombre, setNombre] = useState('');
+  const [descripcion, setDescripcion] = useState('');
 
-  const [modalMensaje, setModalMensaje] = useState({
-    open: false,
-    titulo: '',
-    texto: '',
-    esError: false
-  });
+  // Estados para la Alerta de Confirmación (Borrado Lógico)
+  const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
 
-  const handleOpenCreate = () => {
-    setEditingId(null);
-    setFormData({ nombre: '', descripcion: '' });
-    setOpenDialog(true);
-  };
-
-  const handleOpenEdit = (categoria) => {
-    setEditingId(categoria.id);
-    setFormData({
-      nombre: categoria.nombre || '',
-      descripcion: categoria.descripcion || ''
-    });
-    setOpenDialog(true);
-  };
-
-  const handleSubmit = () => {
-    if (!formData.nombre.trim()) {
-      setModalMensaje({
-        open: true,
-        titulo: 'Atención',
-        texto: 'El nombre de la categoría es obligatorio.',
-        esError: true
-      });
-      return;
+  const fetchCategorias = async () => {
+    try {
+      const response = await api.get('/api/v1/categorias');
+      setCategorias(response.data);
+    } catch (error) {
+      console.error('Error al cargar las categorías:', error);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (editingId) {
-      // Editar existente (Simulación)
-      setCategorias(prev => prev.map(cat => 
-        cat.id === editingId ? { ...cat, ...formData } : cat
-      ));
-      setModalMensaje({
-        open: true,
-        titulo: 'Éxito',
-        texto: 'La categoría se ha actualizado correctamente.',
-        esError: false
-      });
-    } else {
-      // Crear nueva (Simulación)
-      const nuevaCategoria = {
-        id: Date.now(),
-        ...formData,
-        activa: true
-      };
-      setCategorias(prev => [...prev, nuevaCategoria]);
-      setModalMensaje({
-        open: true,
-        titulo: 'Éxito',
-        texto: 'La categoría se ha creado exitosamente.',
-        esError: false
-      });
+  useEffect(() => {
+    fetchCategorias();
+  }, []);
+
+  const handleCrearCategoria = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/v1/categorias', { nombre, descripcion });
+      setNombre('');
+      setDescripcion('');
+      setOpenAddModal(false);
+      fetchCategorias();
+    } catch (error) {
+      console.error('Error al crear categoría:', error);
+      alert(error.response?.data?.message || 'Error al guardar la categoría');
     }
-
-    setOpenDialog(false);
   };
 
-  const handleDelete = (id) => {
-    setCategorias(prev => prev.filter(cat => cat.id !== id));
-    setModalMensaje({
-      open: true,
-      titulo: 'Eliminado',
-      texto: 'La categoría ha sido eliminada.',
-      esError: false
-    });
+  const handleOpenConfirm = (categoria) => {
+    setCategoriaSeleccionada(categoria);
+    setOpenConfirmDialog(true);
   };
+
+  const handleToggleEstado = async () => {
+    if (!categoriaSeleccionada) return;
+    try {
+      await api.patch(`/api/v1/categorias/${categoriaSeleccionada.id}/estado`);
+      setOpenConfirmDialog(false);
+      setCategoriaSeleccionada(null);
+      fetchCategorias();
+    } catch (error) {
+      console.error('Error al cambiar el estado:', error);
+    }
+  };
+
+  if (loading) return <Typography sx={{ p: 3 }}>Cargando categorías...</Typography>;
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      {/* Encabezado */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
-        <Typography variant="h4" component="h1" fontWeight="bold" color="text.primary">
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600, color: '#1e293b' }}>
           Gestión de Categorías
         </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          onClick={handleOpenCreate}
-          sx={{ py: 1, px: 3, fontWeight: 'bold' }} 
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setOpenAddModal(true)}
+          sx={{
+            backgroundColor: '#691c32',
+            '&:hover': { backgroundColor: '#501525' },
+            textTransform: 'none',
+            borderRadius: '8px',
+            fontWeight: 600
+          }}
         >
           Nueva Categoría
         </Button>
       </Box>
 
-      {/* Tabla de Categorías */}
-      <TableContainer component={Paper} elevation={3}>
-        <Table>
-          <TableHead sx={{ backgroundColor: '#f5f5f5' }}>
-            <TableRow>
-              <TableCell><b>Nombre</b></TableCell>
-              <TableCell><b>Descripción</b></TableCell>
-              <TableCell align="center"><b>Estado</b></TableCell>
-              <TableCell align="center" sx={{ width: '150px' }}><b>Acciones</b></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {categorias.map((categoria) => (
-              <TableRow key={categoria.id} hover>
-                <TableCell>{categoria.nombre}</TableCell>
-                <TableCell>{categoria.descripcion}</TableCell>
-                <TableCell align="center">
-                  <Chip 
-                    label={categoria.activa ? 'Activa' : 'Inactiva'} 
-                    color={categoria.activa ? 'success' : 'default'}
-                    size="small"
-                    sx={{ minWidth: '80px', fontWeight: 'bold' }}
-                  />
-                </TableCell>
-                <TableCell align="center">
-                  <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
-                    <IconButton 
-                      color="primary"
-                      onClick={() => handleOpenEdit(categoria)}
-                      title="Editar"
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton 
-                      color="error"
-                      onClick={() => handleDelete(categoria.id)}
-                      title="Eliminar"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Stack>
-                </TableCell>
-              </TableRow>
+      <Paper sx={{ p: 2, borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        {categorias.length === 0 ? (
+          <Typography sx={{ py: 3, textAlign: 'center', color: '#64748b' }}>
+            No hay categorías registradas en la base de datos.
+          </Typography>
+        ) : (
+          <List>
+            {categorias.map((cat) => (
+              <ListItem key={cat.id} divider sx={{ py: 2 }}>
+                <ListItemText
+                  primary={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '1rem', color: '#1e293b' }}>
+                        {cat.nombre}
+                      </Typography>
+                      <Chip
+                        label={cat.activo ? 'Activa' : 'Inactiva'}
+                        size="small"
+                        color={cat.activo ? 'success' : 'default'}
+                        sx={{ fontWeight: 500, height: '22px' }}
+                      />
+                    </Box>
+                  }
+                  secondary={cat.descripcion || 'Sin descripción'}
+                  secondaryTypographyProps={{ sx: { color: '#64748b', mt: 0.5 } }}
+                />
+                <ListItemSecondaryAction>
+                  <IconButton
+                    edge="end"
+                    aria-label="cambiar estado"
+                    onClick={() => handleOpenConfirm(cat)}
+                    color={cat.activo ? 'error' : 'success'}
+                    title={cat.activo ? 'Desactivar categoría' : 'Activar categoría'}
+                  >
+                    {cat.activo ? <DeleteIcon /> : <CheckCircleIcon />}
+                  </IconButton>
+                </ListItemSecondaryAction>
+              </ListItem>
             ))}
-            
-            {categorias.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
-                  <Typography variant="body1" color="text.secondary">
-                    No hay categorías registradas.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+          </List>
+        )}
+      </Paper>
 
-      {/* Modal de Creación / Edición */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold' }}>
-          {editingId ? 'Editar Categoría' : 'Nueva Categoría'}
-        </DialogTitle>
-        <DialogContent>
-          <Box display="flex" flexDirection="column" gap={3} mt={2}>
+      {/* Modal para Crear Categoría */}
+      <Dialog open={openAddModal} onClose={() => setOpenAddModal(false)} maxWidth="sm" fullWidth>
+        <form onSubmit={handleCrearCategoria}>
+          <DialogTitle sx={{ fontWeight: 600, color: '#691c32' }}>Registrar Nueva Categoría</DialogTitle>
+          <DialogContent>
             <TextField
-              label="Nombre de la Categoría"
+              autoFocus
+              margin="dense"
+              label="Nombre de la categoría"
+              type="text"
               fullWidth
-              value={formData.nombre}
-              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              required
+              variant="outlined"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              sx={{ mb: 2, mt: 1 }}
             />
             <TextField
+              margin="dense"
               label="Descripción"
+              type="text"
               fullWidth
               multiline
-              rows={3}
-              value={formData.descripcion}
-              onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+              rows={2}
+              variant="outlined"
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
             />
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button onClick={() => setOpenDialog(false)} color="inherit" sx={{ fontWeight: 'bold' }}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary" sx={{ fontWeight: 'bold' }}>
-            Guardar
-          </Button>
-        </DialogActions>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 3 }}>
+            <Button onClick={() => setOpenAddModal(false)} sx={{ color: '#64748b', textTransform: 'none' }}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              sx={{ backgroundColor: '#691c32', '&:hover': { backgroundColor: '#501525' }, textTransform: 'none' }}
+            >
+              Guardar
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
 
-      {/* Modal de Mensajes */}
-      <Dialog 
-        open={modalMensaje.open} 
-        onClose={() => setModalMensaje({ ...modalMensaje, open: false })}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle sx={{ color: modalMensaje.esError ? 'error.main' : 'success.main', fontWeight: 'bold' }}>
-          {modalMensaje.titulo}
+      {/* Diálogo de Alerta para Confirmar Cambio de Estado / Borrado Lógico */}
+      <Dialog open={openConfirmDialog} onClose={() => setOpenConfirmDialog(false)}>
+        <DialogTitle sx={{ fontWeight: 600, color: '#1e2932' }}>
+          {categoriaSeleccionada?.activo ? '¿Desactivar categoría?' : '¿Activar categoría?'}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ mt: 1, color: 'text.primary', fontSize: '1.1rem' }}>
-            {modalMensaje.texto}
+          <DialogContentText sx={{ color: '#475569' }}>
+            {categoriaSeleccionada?.activo
+              ? `Estás a punto de desactivar la categoría "${categoriaSeleccionada?.nombre}". Esto evitará que se use en nuevos registros sin afectar el historial en cascada.`
+              : `Estás a punto de volver a activar la categoría "${categoriaSeleccionada?.nombre}".`}
           </DialogContentText>
         </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setModalMensaje({ ...modalMensaje, open: false })} 
-            variant="contained" 
-            color={modalMensaje.esError ? 'error' : 'primary'}
-            autoFocus
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setOpenConfirmDialog(false)} sx={{ color: '#64748b', textTransform: 'none' }}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleToggleEstado}
+            variant="contained"
+            color={categoriaSeleccionada?.activo ? 'error' : 'success'}
+            sx={{ textTransform: 'none' }}
           >
-            Aceptar
+            {categoriaSeleccionada?.activo ? 'Sí, desactivar' : 'Sí, activar'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 }
