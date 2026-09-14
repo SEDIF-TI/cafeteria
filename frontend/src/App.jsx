@@ -11,9 +11,9 @@ import Ventas from "./pages/Venta/Ventas";
 import Categorias from "./pages/Categorias/Categorias";
 import Inventario from "./pages/Inventario/Inventario";
 import Deudores from "./pages/Deudas/Deudores";
+import MenuCafeteria from "./pages/Menu/MenuCafeteria";
 
 const DashboardHome = () => <h2>Bienvenido al Panel de Operaciones</h2>;
-const MenuCafeteria = () => <h2>Gestión de Menú de Cafetería</h2>;
 
 export default function App() {
   return (
