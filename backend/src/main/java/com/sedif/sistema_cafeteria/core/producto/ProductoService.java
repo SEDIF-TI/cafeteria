@@ -4,11 +4,14 @@ import com.sedif.sistema_cafeteria.core.categoria.Categoria;
 import com.sedif.sistema_cafeteria.core.categoria.CategoriaRepository;
 import com.sedif.sistema_cafeteria.core.inventario.Inventario;
 import com.sedif.sistema_cafeteria.core.inventario.InventarioRepository;
+import com.sedif.sistema_cafeteria.core.inventario.UnidadMedida;
+
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -29,17 +32,29 @@ public class ProductoService {
                 .orElseThrow(() -> new EntityNotFoundException("Categoría no encontrada con id: " + request.categoriaId()));
 
         Inventario inventario = null;
-        if (request.esDirecto()) {
-            if (request.inventarioId() == null) {
-                throw new IllegalArgumentException("Los productos directos deben estar vinculados a un inventario unitario");
+        if (Boolean.TRUE.equals(request.esDirecto())) {
+            if (request.inventarioId() != null) {
+                inventario = inventarioRepository.findById(request.inventarioId())
+                        .orElseThrow(() -> new EntityNotFoundException("Inventario no encontrado con id: " + request.inventarioId()));
+            } else {
+                BigDecimal stockInicial = request.stock() != null ? request.stock() : BigDecimal.ZERO;
+                BigDecimal stockMinimo = request.stockMinimo() != null ? request.stockMinimo() : BigDecimal.ZERO;
+
+                inventario = Inventario.builder()
+                        .nombre("INV-" + request.nombre().trim())
+                        .unidadMedida(UnidadMedida.UNIDAD)
+                        .stockActual(stockInicial)
+                        .stockMinimo(stockMinimo)
+                        .activo(true)
+                        .build();
+
+                inventario = inventarioRepository.save(inventario);
             }
-            inventario = inventarioRepository.findById(request.inventarioId())
-                    .orElseThrow(() -> new EntityNotFoundException("Inventario no encontrado con id: " + request.inventarioId()));
         }
 
         Producto producto = Producto.builder()
                 .nombre(request.nombre())
-                .descripcion(request.descripcion())
+                .descripcion(request.descripcion() != null ? request.descripcion() : "")
                 .precio(request.precio())
                 .esDirecto(request.esDirecto())
                 .inventario(inventario)
@@ -73,28 +88,34 @@ public class ProductoService {
     @Transactional
     public ProductoResponseRecord actualizarProducto(Long id, ProductoRequestRecord request) {
         Producto producto = productoRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Producto no encontrado con id: " + id));
-
-        Categoria categoria = categoriaRepository.findById(request.categoriaId())
-                .orElseThrow(() -> new EntityNotFoundException("Categoría no encontrada con id: " + request.categoriaId()));
-
-        Inventario inventario = null;
-        if (request.esDirecto()) {
-            if (request.inventarioId() == null) {
-                throw new IllegalArgumentException("Los productos directos deben estar vinculados a un inventario unitario");
-            }
-            inventario = inventarioRepository.findById(request.inventarioId())
-                    .orElseThrow(() -> new EntityNotFoundException("Inventario no encontrado con id: " + request.inventarioId()));
-        }
+            .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
 
         producto.setNombre(request.nombre());
+        producto.getDescripcion(); // Actualiza la descripción
         producto.setDescripcion(request.descripcion());
         producto.setPrecio(request.precio());
         producto.setEsDirecto(request.esDirecto());
-        producto.setInventario(inventario);
-        producto.setCategoria(categoria);
 
-        return new ProductoResponseRecord(productoRepository.save(producto));
+        // Actualización de Inventario si es venta directa
+        if (Boolean.TRUE.equals(request.esDirecto())) {
+            Inventario inventario = producto.getInventario();
+
+            if (inventario == null) {
+                inventario = Inventario.builder()
+                    .nombre(request.nombre())
+                    .unidadMedida(UnidadMedida.UNIDAD)
+                    .build();
+            }
+
+            // ASIGNACIÓN CLAVE:
+            inventario.setStockActual(request.stock() != null ? request.stock() : BigDecimal.ZERO);
+            inventario.setStockMinimo(request.stockMinimo() != null ? request.stockMinimo() : BigDecimal.ZERO);
+
+            producto.setInventario(inventario);
+        }
+
+        Producto productoGuardado = productoRepository.save(producto);
+        return new ProductoResponseRecord(productoGuardado);
     }
 
     @Transactional

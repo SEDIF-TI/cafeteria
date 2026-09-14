@@ -1,18 +1,16 @@
 package com.sedif.sistema_cafeteria.core.producto;
 
-import java.math.BigDecimal; // <-- Importante
+import java.math.BigDecimal;
 
 public record ProductoResponseRecord(
-        Long id,
-        String nombre,
-        String descripcion,
-        BigDecimal precio, // <-- Cambiado a BigDecimal
-        Boolean esDirecto,
-        Long inventarioId,
-        String inventarioNombre,
-        Long categoriaId,
-        String categoriaNombre,
-        Boolean activo
+    Long id,
+    String nombre,
+    String descripcion,
+    BigDecimal precio,
+    Boolean esDirecto,
+    Boolean activo,
+    CategoriaDTO categoria,
+    InventarioDTO inventario
 ) {
     public ProductoResponseRecord(Producto producto) {
         this(
@@ -21,11 +19,20 @@ public record ProductoResponseRecord(
             producto.getDescripcion(),
             producto.getPrecio(),
             producto.getEsDirecto(),
-            producto.getInventario() != null ? producto.getInventario().getId() : null,
-            producto.getInventario() != null ? producto.getInventario().getNombre() : null,
-            producto.getCategoria().getId(),
-            producto.getCategoria().getNombre(),
-            producto.getActivo()
+            producto.getActivo(),
+            producto.getCategoria() != null 
+                ? new CategoriaDTO(producto.getCategoria().getId(), producto.getCategoria().getNombre()) 
+                : null,
+            producto.getInventario() != null 
+                ? new InventarioDTO(
+                    producto.getInventario().getId(), 
+                    producto.getInventario().getStockActual(),
+                    producto.getInventario().getStockMinimo()
+                  ) 
+                : null
         );
     }
+
+    public record CategoriaDTO(Long id, String nombre) {}
+    public record InventarioDTO(Long id, BigDecimal stockActual, BigDecimal stockMinimo) {}
 }
