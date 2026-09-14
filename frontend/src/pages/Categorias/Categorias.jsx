@@ -1,22 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/axiosClient';
 import {
-  Box,
-  Typography,
-  Paper,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  TextField,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  IconButton,
-  Chip
+  Box, Typography, Paper, Button, Dialog, DialogTitle,
+  DialogContent, DialogContentText, DialogActions, TextField,
+  List, ListItem, ListItemText, ListItemSecondaryAction,
+  IconButton, Chip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -26,18 +14,18 @@ export default function Categorias() {
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Estados para el Modal de Agregar
+  // Estados para el Modal
   const [openAddModal, setOpenAddModal] = useState(false);
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
 
-  // Estados para la Alerta de Confirmación (Borrado Lógico)
+  // Estados para Confirmación
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
 
   const fetchCategorias = async () => {
     try {
-      const response = await api.get('/api/v1/categorias');
+      const response = await api.get('/categorias');
       setCategorias(response.data);
     } catch (error) {
       console.error('Error al cargar las categorías:', error);
@@ -51,16 +39,23 @@ export default function Categorias() {
   }, []);
 
   const handleCrearCategoria = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // Evita que la página se recargue
+
     try {
-      await api.post('/api/v1/categorias', { nombre, descripcion });
+      const payload = {
+        nombre: nombre.trim(),
+        descripcion: descripcion.trim()
+      };
+
+      await api.post('/categorias', payload);
+
+      // Limpieza y cierre de modal
       setNombre('');
       setDescripcion('');
       setOpenAddModal(false);
-      fetchCategorias();
+      fetchCategorias(); // Recargar la lista
     } catch (error) {
-      console.error('Error al crear categoría:', error);
-      alert(error.response?.data?.message || 'Error al guardar la categoría');
+      console.error('Error al crear categoría:', error.response?.data || error.message);
     }
   };
 
@@ -72,7 +67,8 @@ export default function Categorias() {
   const handleToggleEstado = async () => {
     if (!categoriaSeleccionada) return;
     try {
-      await api.patch(`/api/v1/categorias/${categoriaSeleccionada.id}/estado`);
+      // Se quitó el prefijo duplicado /api/v1
+      await api.patch(`/categorias/${categoriaSeleccionada.id}/estado`);
       setOpenConfirmDialog(false);
       setCategoriaSeleccionada(null);
       fetchCategorias();

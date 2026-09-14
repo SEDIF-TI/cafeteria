@@ -23,6 +23,12 @@ public record ProductoRequestRecord(
 
         Long inventarioId, // Obligatorio si es directo
 
+        @Min(value = 0, message = "El stock no puede ser negativo")
+
+        BigDecimal stock, // Obligatorio si es directo
+
+        BigDecimal stockMinimo, // Obligatorio si es directo
+
         @NotNull(message = "La categoría es obligatoria")
         Long categoriaId
 ) {
