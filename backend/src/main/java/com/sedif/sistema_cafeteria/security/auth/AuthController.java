@@ -5,10 +5,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.Principal;
+import java.util.Map;
 /**
  * Endpoints publicos de autenticacion.
  *
@@ -39,5 +42,34 @@ public class AuthController {
     public ResponseEntity<ApiResponse<JwtResponse>> login(@Valid @RequestBody LoginRequest request) {
         JwtResponse respuesta = authService.iniciarSesion(request);
         return ResponseEntity.ok(ApiResponse.ok(respuesta, respuesta.mensaje()));
+    }
+
+    @PostMapping("/recuperar-password")
+    public ResponseEntity<?> recuperarPassword(@RequestBody Map<String, String> request) {
+        String identificador = request.get("identificador");
+        
+        if (identificador == null || identificador.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("mensaje", "El identificador es obligatorio."));
+        }
+
+        // Ejecutamos la lógica de generación y envío por Telegram
+        authService.recuperarPassword(identificador);
+        
+        // Devolvemos un mensaje genérico por seguridad (para no revelar si el usuario existe o no ante atacantes)
+        return ResponseEntity.ok(Map.of("mensaje", "Si el usuario existe y tiene su cuenta vinculada, recibirá su contraseña temporal por Telegram."));
+    }
+
+    @PutMapping("/actualizar-password")
+    public ResponseEntity<?> actualizarPassword(@RequestBody Map<String, String> request, Principal principal) {
+        String nuevaPassword = request.get("nuevaPassword");
+        
+        if (nuevaPassword == null || nuevaPassword.trim().length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("mensaje", "La contraseña debe tener al menos 6 caracteres."));
+        }
+
+        // Llamada al servicio para hashear y guardar
+        authService.actualizarPasswordDefinitiva(principal.getName(), nuevaPassword);
+        
+        return ResponseEntity.ok(Map.of("mensaje", "Contraseña actualizada exitosamente."));
     }
 }

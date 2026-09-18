@@ -22,5 +22,6 @@ public record JwtResponse(
         String token,
         String mensaje,
         List<VistaDTO> vistas,
-        Long areaId
+        Long areaId,
+        boolean requiereCambioPassword
 ) {}

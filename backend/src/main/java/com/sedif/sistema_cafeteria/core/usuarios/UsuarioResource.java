@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 
@@ -18,17 +19,20 @@ public class UsuarioResource {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR')")
     public ResponseEntity<List<UsuarioResponse>> listarTodos() {
         return ResponseEntity.ok(usuarioService.listarTodos());
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR')")
     public ResponseEntity<UsuarioResponse> crear(@Valid @RequestBody UsuarioRequest request) {
         UsuarioResponse response = usuarioService.crear(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PutMapping("/{id}/estado")
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR')")
     public ResponseEntity<UsuarioResponse> cambiarEstado(
             @PathVariable Long id,
             @RequestBody boolean activo) {
@@ -37,6 +41,7 @@ public class UsuarioResource {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR')")
     public ResponseEntity<UsuarioResponse> actualizar(
             @PathVariable Long id,
             @Valid @RequestBody UsuarioRequest request) {

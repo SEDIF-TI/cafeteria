@@ -36,4 +36,10 @@ public class Usuario {
 
     @Embedded
     private Auditable auditable = new Auditable();
+
+    @Column(name = "n_telegram_chat_id")
+    private Long telegramChatId;
+
+    @Column(name = "s_password_temporal", length = 150)
+    private String passwordTemporal;
 }
