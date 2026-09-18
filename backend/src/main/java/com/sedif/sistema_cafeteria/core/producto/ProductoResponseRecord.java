@@ -27,12 +27,18 @@ public record ProductoResponseRecord(
                 ? new InventarioDTO(
                     producto.getInventario().getId(), 
                     producto.getInventario().getStockActual(),
-                    producto.getInventario().getStockMinimo()
+                    producto.getInventario().getStockMinimo(),
+                    // Obtenemos la unidad de medida como texto (String)
+                    producto.getInventario().getUnidadMedida() != null 
+                        ? producto.getInventario().getUnidadMedida().name() 
+                        : null
                   ) 
                 : null
         );
     }
 
     public record CategoriaDTO(Long id, String nombre) {}
-    public record InventarioDTO(Long id, BigDecimal stockActual, BigDecimal stockMinimo) {}
+    
+    // Agregamos unidadMedida al final
+    public record InventarioDTO(Long id, BigDecimal stockActual, BigDecimal stockMinimo, String unidadMedida) {}
 }

@@ -24,39 +24,52 @@ public class ProductoService {
 
     @Transactional
     public ProductoResponseRecord crearProducto(ProductoRequestRecord request) {
-        if (productoRepository.findByNombre(request.nombre()).isPresent()) {
-            throw new IllegalArgumentException("Ya existe un producto con ese nombre");
+        if (request.nombre() == null || request.nombre().isBlank()) {
+            throw new IllegalArgumentException("El nombre del producto no puede estar vacío.");
+        }
+
+        if (productoRepository.findByNombre(request.nombre().trim()).isPresent()) {
+            throw new IllegalArgumentException("Ya existe un producto con ese nombre.");
+        }
+
+        if (request.categoriaId() == null) {
+            throw new IllegalArgumentException("Debes seleccionar una categoría válida.");
         }
 
         Categoria categoria = categoriaRepository.findById(request.categoriaId())
                 .orElseThrow(() -> new EntityNotFoundException("Categoría no encontrada con id: " + request.categoriaId()));
 
-        Inventario inventario = null;
-        if (Boolean.TRUE.equals(request.esDirecto())) {
-            if (request.inventarioId() != null) {
-                inventario = inventarioRepository.findById(request.inventarioId())
-                        .orElseThrow(() -> new EntityNotFoundException("Inventario no encontrado con id: " + request.inventarioId()));
-            } else {
-                BigDecimal stockInicial = request.stock() != null ? request.stock() : BigDecimal.ZERO;
-                BigDecimal stockMinimo = request.stockMinimo() != null ? request.stockMinimo() : BigDecimal.ZERO;
+        BigDecimal precioVal = request.precio() != null ? request.precio() : BigDecimal.ZERO;
+        BigDecimal stockInicial = request.stock() != null ? request.stock() : BigDecimal.ZERO;
+        BigDecimal stockMinimo = request.stockMinimo() != null ? request.stockMinimo() : BigDecimal.ZERO;
+        UnidadMedida unidad = parseUnidadMedida(request.unidadMedida());
+        String nombreInv = "INV-" + request.nombre().trim();
 
-                inventario = Inventario.builder()
-                        .nombre("INV-" + request.nombre().trim())
-                        .unidadMedida(UnidadMedida.UNIDAD)
-                        .stockActual(stockInicial)
-                        .stockMinimo(stockMinimo)
-                        .activo(true)
-                        .build();
+        Inventario inventario;
+        if (request.inventarioId() != null) {
+            inventario = inventarioRepository.findById(request.inventarioId())
+                    .orElseThrow(() -> new EntityNotFoundException("Inventario no encontrado con id: " + request.inventarioId()));
+        } else {
+            inventario = inventarioRepository.findByNombre(nombreInv)
+                    .orElseGet(() -> Inventario.builder()
+                            .nombre(nombreInv)
+                            .unidadMedida(unidad)
+                            .stockActual(stockInicial)
+                            .stockMinimo(stockMinimo)
+                            .activo(true)
+                            .build());
 
-                inventario = inventarioRepository.save(inventario);
-            }
+            inventario.setStockActual(stockInicial);
+            inventario.setStockMinimo(stockMinimo);
+            inventario.setUnidadMedida(unidad);
+            inventario = inventarioRepository.save(inventario);
         }
 
         Producto producto = Producto.builder()
-                .nombre(request.nombre())
+                .nombre(request.nombre().trim())
                 .descripcion(request.descripcion() != null ? request.descripcion() : "")
-                .precio(request.precio())
-                .esDirecto(request.esDirecto())
+                .precio(precioVal)
+                .esDirecto(Boolean.TRUE.equals(request.esDirecto()))
                 .inventario(inventario)
                 .categoria(categoria)
                 .build();
@@ -88,31 +101,43 @@ public class ProductoService {
     @Transactional
     public ProductoResponseRecord actualizarProducto(Long id, ProductoRequestRecord request) {
         Producto producto = productoRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+                .orElseThrow(() -> new EntityNotFoundException("Producto no encontrado con id: " + id));
 
-        producto.setNombre(request.nombre());
-        producto.getDescripcion(); // Actualiza la descripción
-        producto.setDescripcion(request.descripcion());
-        producto.setPrecio(request.precio());
-        producto.setEsDirecto(request.esDirecto());
-
-        // Actualización de Inventario si es venta directa
-        if (Boolean.TRUE.equals(request.esDirecto())) {
-            Inventario inventario = producto.getInventario();
-
-            if (inventario == null) {
-                inventario = Inventario.builder()
-                    .nombre(request.nombre())
-                    .unidadMedida(UnidadMedida.UNIDAD)
-                    .build();
-            }
-
-            // ASIGNACIÓN CLAVE:
-            inventario.setStockActual(request.stock() != null ? request.stock() : BigDecimal.ZERO);
-            inventario.setStockMinimo(request.stockMinimo() != null ? request.stockMinimo() : BigDecimal.ZERO);
-
-            producto.setInventario(inventario);
+        if (request.categoriaId() == null) {
+            throw new IllegalArgumentException("Debes seleccionar una categoría válida.");
         }
+
+        Categoria categoria = categoriaRepository.findById(request.categoriaId())
+                .orElseThrow(() -> new EntityNotFoundException("Categoría no encontrada con id: " + request.categoriaId()));
+
+        producto.setNombre(request.nombre().trim());
+        producto.setDescripcion(request.descripcion() != null ? request.descripcion() : "");
+        producto.setPrecio(request.precio() != null ? request.precio() : BigDecimal.ZERO);
+        producto.setEsDirecto(Boolean.TRUE.equals(request.esDirecto()));
+        producto.setCategoria(categoria);
+
+        BigDecimal stockVal = request.stock() != null ? request.stock() : BigDecimal.ZERO;
+        BigDecimal stockMinVal = request.stockMinimo() != null ? request.stockMinimo() : BigDecimal.ZERO;
+        UnidadMedida unidadVal = parseUnidadMedida(request.unidadMedida());
+        String nombreInv = "INV-" + request.nombre().trim();
+
+        Inventario inventario = producto.getInventario();
+
+        if (inventario == null) {
+            inventario = inventarioRepository.findByNombre(nombreInv)
+                    .orElseGet(() -> Inventario.builder()
+                            .nombre(nombreInv)
+                            .activo(true)
+                            .build());
+        }
+
+        inventario.setNombre(nombreInv);
+        inventario.setStockActual(stockVal);
+        inventario.setStockMinimo(stockMinVal);
+        inventario.setUnidadMedida(unidadVal);
+
+        inventario = inventarioRepository.save(inventario);
+        producto.setInventario(inventario);
 
         Producto productoGuardado = productoRepository.save(producto);
         return new ProductoResponseRecord(productoGuardado);
@@ -122,8 +147,41 @@ public class ProductoService {
     public void alternarEstado(Long id) {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Producto no encontrado con id: " + id));
-        
+
         producto.setActivo(!producto.getActivo());
         productoRepository.save(producto);
+    }
+
+    private UnidadMedida parseUnidadMedida(Object unidadInput) {
+        if (unidadInput == null) {
+            return UnidadMedida.UNIDAD;
+        }
+        if (unidadInput instanceof UnidadMedida um) {
+            return um;
+        }
+
+        String str = unidadInput.toString().trim().toUpperCase();
+
+        // Mapeo seguro para líquidos (Litros / Mililitros)
+        if (str.contains("LITRO") || str.contains("MILILITRO") || str.equals("ML") || str.equals("L")) {
+            return UnidadMedida.MILILITROS;
+        }
+        // Mapeo seguro para sólidos / peso (Kilos / Gramos)
+        if (str.contains("GRAMO") || str.contains("KILO") || str.equals("KG") || str.equals("G")) {
+            return UnidadMedida.GRAMOS;
+        }
+        // Mapeo seguro para unidades / piezas
+        if (str.contains("UNIDAD") || str.contains("PIEZA") || str.equals("PZA") || str.equals("U")) {
+            return UnidadMedida.UNIDAD;
+        }
+
+        // Búsqueda directa por coincidencia en el Enum
+        for (UnidadMedida um : UnidadMedida.values()) {
+            if (um.name().equalsIgnoreCase(str)) {
+                return um;
+            }
+        }
+        
+        return UnidadMedida.UNIDAD;
     }
 }

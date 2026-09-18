@@ -8,10 +8,11 @@ import MainLayout from "./components/MainLayout";
 
 import Usuarios from "./pages/Administracion/Usuarios";
 import Ventas from "./pages/Venta/Ventas";
-import Categorias from "./pages/Categorias/Categorias";
+import Categorias from "./pages/Categoria/Categorias";
 import Inventario from "./pages/Inventario/Inventario";
 import Deudores from "./pages/Deudas/Deudores";
 import MenuCafeteria from "./pages/Menu/MenuCafeteria";
+import { Recetas } from "./pages/Receta/Recetas";
 
 const DashboardHome = () => <h2>Bienvenido al Panel de Operaciones</h2>;
 
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="menu" element={<MenuCafeteria />} />
             <Route path="ventas" element={<Ventas />} />
             <Route path="inventario" element={<Inventario />} />
+            <Route path="recetas" element={<Recetas />} />
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="deudores" element={<Deudores />} />
           </Route>
