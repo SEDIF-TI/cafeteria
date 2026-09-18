@@ -60,6 +60,7 @@ export default function MainLayout() {
     { text: 'Menú de Cafetería', icon: <RestaurantMenuIcon />, path: '/dashboard/menu' },
     { text: 'Ventas y Caja', icon: <PointOfSaleIcon />, path: '/dashboard/ventas' },
     { text: 'Inventario (Prod. Terminados)', icon: <InventoryIcon />, path: '/dashboard/inventario' },
+    { text: 'Recetas', icon: <RestaurantMenuIcon />, path: '/dashboard/recetas' },
     { text: 'Personal', icon: <GroupIcon />, path: '/dashboard/usuarios' },
     { text: 'Deudores', icon: <MoneyOffIcon />, path: '/dashboard/deudores' },
   ];

@@ -55,10 +55,11 @@ public class InventarioService {
         Inventario inventario = inventarioRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Registro de inventario no encontrado con id: " + id));
 
-        inventario.setNombre(request.nombre());
-        inventario.setUnidadMedida(request.unidadMedida());
-        inventario.setStockActual(request.stockActual());
-        inventario.setStockMinimo(request.stockMinimo());
+        // Verificamos que los datos vengan correctamente antes de asignarlos
+        if (request.nombre() != null) inventario.setNombre(request.nombre());
+        if (request.unidadMedida() != null) inventario.setUnidadMedida(request.unidadMedida());
+        if (request.stockActual() != null) inventario.setStockActual(request.stockActual());
+        if (request.stockMinimo() != null) inventario.setStockMinimo(request.stockMinimo());
 
         return new InventarioResponseRecord(inventarioRepository.save(inventario));
     }
