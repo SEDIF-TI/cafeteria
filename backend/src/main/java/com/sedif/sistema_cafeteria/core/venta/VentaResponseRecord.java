@@ -10,7 +10,10 @@ public record VentaResponseRecord(
         String usuarioNombre,
         BigDecimal total,
         LocalDateTime fechaCreacion,
-        List<DetalleVentaResponseRecord> detalles
+        List<DetalleVentaResponseRecord> detalles,
+        EstadoVenta estado,
+        Long clienteId,
+        String clienteNombre
 ) {
     public record DetalleVentaResponseRecord(
             Long productoId,
@@ -37,7 +40,10 @@ public record VentaResponseRecord(
             venta.getUsuario().getNombre(), // Ajusta según el campo de nombre en tu entidad Usuario
             venta.getTotal(),
             venta.getAuditable().getFechaCreacion(),
-            venta.getDetalles().stream().map(DetalleVentaResponseRecord::new).toList()
+            venta.getDetalles().stream().map(DetalleVentaResponseRecord::new).toList(),
+            venta.getEstado(),
+            venta.getCliente() != null ? venta.getCliente().getId() : null,
+            venta.getCliente() != null ? venta.getCliente().getNombre() : null
         );
     }
 }
