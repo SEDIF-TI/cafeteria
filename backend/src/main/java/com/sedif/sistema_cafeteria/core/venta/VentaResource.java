@@ -37,4 +37,14 @@ public class VentaResource {
     public ResponseEntity<VentaResponseRecord> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(ventaService.obtenerPorId(id));
     }
+
+    @GetMapping("/deudas/cliente/{clienteId}")
+    public ResponseEntity<List<VentaResponseRecord>> consultarDeudasPorCliente(@PathVariable Long clienteId) {
+        return ResponseEntity.ok(ventaService.obtenerDeudasPorCliente(clienteId));
+    }
+
+    @PutMapping("/{id}/liquidar")
+    public ResponseEntity<VentaResponseRecord> liquidarDeuda(@PathVariable Long id) {
+        return ResponseEntity.ok(ventaService.liquidarDeuda(id));
+    }
 }

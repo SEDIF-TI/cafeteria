@@ -36,4 +36,13 @@ public class Venta {
     @Embedded
     @Builder.Default
     private Auditable auditable = new Auditable();
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private EstadoVenta estado;
+
+    // Relación opcional con el cliente (Deudor). Ajusta 'Usuario' por 'Cliente' si tienes una entidad separada para ellos.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id")
+    private Usuario cliente;
 }
