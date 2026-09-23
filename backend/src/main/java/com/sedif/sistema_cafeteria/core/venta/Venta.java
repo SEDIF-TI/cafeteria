@@ -1,5 +1,6 @@
 package com.sedif.sistema_cafeteria.core.venta;
 
+import com.sedif.sistema_cafeteria.core.cliente.Cliente;
 import com.sedif.sistema_cafeteria.core.usuarios.Usuario; // Ajusta el paquete según tu entidad de usuarios
 import com.sedif.sistema_cafeteria.util.Auditable;
 import jakarta.persistence.*;
@@ -32,6 +33,10 @@ public class Venta {
 
     @OneToMany(mappedBy = "venta", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DetalleVenta> detalles;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id", nullable = true) // Puede ser nulo si la venta es a público general
+    private Cliente cliente;
 
     @Embedded
     @Builder.Default

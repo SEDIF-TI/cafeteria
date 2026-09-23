@@ -12,7 +12,7 @@ import Categorias from "./pages/Categoria/Categorias";
 import Inventario from "./pages/Inventario/Inventario";
 import Deudores from "./pages/Deudas/Deudores";
 import MenuCafeteria from "./pages/Menu/MenuCafeteria";
-import { Recetas } from "./pages/Receta/Recetas";
+import Recetas from "./pages/Receta/Recetas";
 
 const DashboardHome = () => <h2>Bienvenido al Panel de Operaciones</h2>;
 

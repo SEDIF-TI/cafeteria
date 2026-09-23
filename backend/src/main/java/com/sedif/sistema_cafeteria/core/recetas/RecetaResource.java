@@ -25,4 +25,9 @@ public class RecetaResource {
             @RequestBody List<IngredienteRequestDTO> ingredientes) {
         return ResponseEntity.ok(recetaService.guardarOActualizarReceta(productoId, ingredientes));
     }
+
+    @GetMapping("/resumen")
+    public ResponseEntity<List<RecetaResumenDTO>> obtenerResumenRecetas() {
+        return ResponseEntity.ok(recetaService.obtenerResumenRecetas());
+    }
 }
