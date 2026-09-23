@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Container, Typography, Box, Button, Table, TableBody, TableCell,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, MenuItem, Chip, Grid, IconButton, Tooltip
+  DialogActions, TextField, MenuItem, Chip, Grid, IconButton, Tooltip,
+  InputAdornment
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -65,6 +66,25 @@ export default function Inventario() {
     }
     
     return `${Math.floor(cantidad)} unidades`;
+  };
+
+  // Determina unidad, sufijo y texto descriptivo para el modal de reabastecimiento
+  const obtenerDetallesUnidad = (item) => {
+    if (!item) return { esPieza: true, unidadMedEnum: 'UNIDAD', unidadTexto: 'Piezas', sufijo: 'pza', factor: 1 };
+    
+    const inv = item.inventario || item;
+    const esDirecto = item.esDirecto ?? true;
+    let uniMedStr = (inv.unidadMedida ?? inv.unidad_medida ?? item.unidadMedida ?? '').toString().toUpperCase();
+    
+    if (!uniMedStr) uniMedStr = esDirecto ? 'UNIDAD' : 'GRAMOS';
+
+    if (uniMedStr.includes('GRAMO') || uniMedStr.includes('KILO')) {
+      return { esPieza: false, unidadMedEnum: 'GRAMOS', unidadTexto: 'Kilos (Kg)', sufijo: 'Kg', factor: 1000 };
+    }
+    if (uniMedStr.includes('LITRO') || uniMedStr.includes('MILILITRO')) {
+      return { esPieza: false, unidadMedEnum: 'MILILITROS', unidadTexto: 'Litros (L)', sufijo: 'L', factor: 1000 };
+    }
+    return { esPieza: true, unidadMedEnum: 'UNIDAD', unidadTexto: 'Piezas / Unidades', sufijo: 'pza', factor: 1 };
   };
 
   const handleOpenCreate = () => {
@@ -166,24 +186,15 @@ export default function Inventario() {
     const inv = productoSeleccionado.inventario || productoSeleccionado;
     const stockActualVal = parseFloat(inv.stockActual ?? productoSeleccionado.stockActual ?? 0) || 0;
     
-    let uniMedStr = (inv.unidadMedida ?? productoSeleccionado.unidadMedida ?? '').toString().toUpperCase();
-    if (!uniMedStr) uniMedStr = productoSeleccionado.esDirecto === false ? 'GRAMOS' : 'UNIDAD';
+    const detalles = obtenerDetallesUnidad(productoSeleccionado);
 
-    let uniMedEnum = 'UNIDAD';
-    if (uniMedStr.includes('GRAMO') || uniMedStr.includes('KILO')) uniMedEnum = 'GRAMOS';
-    else if (uniMedStr.includes('LITRO') || uniMedStr.includes('MILILITRO')) uniMedEnum = 'MILILITROS';
-
-    const esPieza = productoSeleccionado.esDirecto || uniMedEnum === 'UNIDAD';
-
-    if (esPieza && !Number.isInteger(extraVal)) {
+    if (detalles.esPieza && !Number.isInteger(extraVal)) {
       alert("Para productos en Venta Directa o Piezas solo se permiten números enteros.");
       return;
     }
 
-    let extraBase = extraVal;
-    if (uniMedEnum === 'GRAMOS' || uniMedEnum === 'MILILITROS') {
-      extraBase *= 1000;
-    }
+    // Se convierte de Kg/L a la unidad base (Gramos/Mililitros)
+    const extraBase = detalles.esPieza ? extraVal : extraVal * detalles.factor;
 
     const nuevoStockTotal = stockActualVal + extraBase;
     const idCat = productoSeleccionado.categoria?.id || productoSeleccionado.categoriaId;
@@ -196,7 +207,7 @@ export default function Inventario() {
       categoriaId: idCat,
       stock: nuevoStockTotal,
       stockMinimo: parseFloat(inv.stockMinimo ?? productoSeleccionado.stockMinimo ?? 0),
-      unidadMedida: uniMedEnum
+      unidadMedida: detalles.unidadMedEnum
     };
 
     try {
@@ -309,6 +320,7 @@ export default function Inventario() {
   };
 
   const permiteDecimales = !formData.esDirecto && formData.unidadVisual !== 'Piezas';
+  const detallesStockDialog = obtenerDetallesUnidad(productoSeleccionado);
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -394,6 +406,7 @@ export default function Inventario() {
         </Table>
       </Paper>
 
+      {/* Modal Crear / Editar */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>{editId ? 'Editar Registro' : 'Nuevo Registro'}</DialogTitle>
         <DialogContent>
@@ -502,6 +515,7 @@ export default function Inventario() {
         </DialogActions>
       </Dialog>
 
+      {/* Modal Reabastecer Stock */}
       <Dialog open={openStockDialog} onClose={() => setOpenStockDialog(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Reabastecer Stock</DialogTitle>
         <DialogContent>
@@ -510,22 +524,31 @@ export default function Inventario() {
               Producto: <b>{productoSeleccionado?.nombre}</b>
             </Typography>
             <TextField
-              label="Cantidad a sumar"
+              label={`Cantidad a sumar (${detallesStockDialog.sufijo})`}
               type="number"
               fullWidth
               autoFocus
               sx={{ mt: 2 }}
-              onKeyDown={(e) => handleKeyDownNumerico(e, !productoSeleccionado?.esDirecto && productoSeleccionado?.unidadMedida !== 'UNIDAD')}
+              onKeyDown={(e) => handleKeyDownNumerico(e, !detallesStockDialog.esPieza)}
               inputProps={{ 
                 min: 0, 
-                step: (productoSeleccionado?.esDirecto || productoSeleccionado?.unidadMedida === 'UNIDAD') ? "1" : "any" 
+                step: detallesStockDialog.esPieza ? "1" : "any" 
+              }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#666' }}>
+                      {detallesStockDialog.sufijo}
+                    </Typography>
+                  </InputAdornment>
+                )
               }}
               value={stockExtra}
               onChange={(e) => setStockExtra(e.target.value)}
               helperText={
-                (productoSeleccionado?.esDirecto || productoSeleccionado?.unidadMedida === 'UNIDAD')
+                detallesStockDialog.esPieza
                   ? "Ingresa números enteros únicamente." 
-                  : "Se sumará al stock disponible actual."
+                  : `Ingresa la cantidad en ${detallesStockDialog.unidadTexto} (Ej: 0.5 = 500 ${detallesStockDialog.unidadMedEnum === 'GRAMOS' ? 'g' : 'ml'}, 1 = 1 ${detallesStockDialog.sufijo}).`
               }
             />
           </Box>

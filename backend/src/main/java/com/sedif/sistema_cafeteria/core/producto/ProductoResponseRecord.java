@@ -9,10 +9,11 @@ public record ProductoResponseRecord(
     BigDecimal precio,
     Boolean esDirecto,
     Boolean activo,
+    BigDecimal stockDisponible, // Stock calculado dinámicamente (directo o por receta)
     CategoriaDTO categoria,
     InventarioDTO inventario
 ) {
-    public ProductoResponseRecord(Producto producto) {
+    public ProductoResponseRecord(Producto producto, BigDecimal stockDisponible) {
         this(
             producto.getId(),
             producto.getNombre(),
@@ -20,6 +21,7 @@ public record ProductoResponseRecord(
             producto.getPrecio(),
             producto.getEsDirecto(),
             producto.getActivo(),
+            stockDisponible,
             producto.getCategoria() != null 
                 ? new CategoriaDTO(producto.getCategoria().getId(), producto.getCategoria().getNombre()) 
                 : null,
@@ -28,7 +30,6 @@ public record ProductoResponseRecord(
                     producto.getInventario().getId(), 
                     producto.getInventario().getStockActual(),
                     producto.getInventario().getStockMinimo(),
-                    // Obtenemos la unidad de medida como texto (String)
                     producto.getInventario().getUnidadMedida() != null 
                         ? producto.getInventario().getUnidadMedida().name() 
                         : null
@@ -39,6 +40,5 @@ public record ProductoResponseRecord(
 
     public record CategoriaDTO(Long id, String nombre) {}
     
-    // Agregamos unidadMedida al final
     public record InventarioDTO(Long id, BigDecimal stockActual, BigDecimal stockMinimo, String unidadMedida) {}
 }
