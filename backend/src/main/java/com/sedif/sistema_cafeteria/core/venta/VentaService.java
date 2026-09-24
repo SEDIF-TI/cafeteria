@@ -1,5 +1,9 @@
 package com.sedif.sistema_cafeteria.core.venta;
 
+import com.sedif.sistema_cafeteria.core.caja.MovimientoCaja;
+import com.sedif.sistema_cafeteria.core.caja.MovimientoCajaRepository;
+import com.sedif.sistema_cafeteria.core.caja.Turno;
+import com.sedif.sistema_cafeteria.core.caja.TurnoRepository;
 import com.sedif.sistema_cafeteria.core.inventario.Inventario;
 import com.sedif.sistema_cafeteria.core.inventario.InventarioRepository;
 import com.sedif.sistema_cafeteria.core.producto.Producto;
@@ -15,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,6 +33,10 @@ public class VentaService {
     private final ProductoInsumoRepository productoInsumoRepository;
     private final UsuarioRepository usuarioRepository;
     private final SedifTelegramBot sedifTelegramBot;
+    
+    // Inyecciones nuevas para conectar con el módulo de caja
+    private final TurnoRepository turnoRepository;
+    private final MovimientoCajaRepository movimientoCajaRepository;
 
     @Transactional
     public VentaResponseRecord registrarVenta(VentaRequestRecord request) {
@@ -58,9 +67,7 @@ public class VentaService {
             Producto producto = productoRepository.findById(itemReq.productoId())
                     .orElseThrow(() -> new EntityNotFoundException("Producto no encontrado con id: " + itemReq.productoId()));
 
-            // Convertir la cantidad del request a BigDecimal para las operaciones
             BigDecimal cantidadItem = BigDecimal.valueOf(itemReq.cantidad());
-
             BigDecimal subtotal = producto.getPrecio().multiply(cantidadItem);
             totalVenta = totalVenta.add(subtotal);
 
@@ -75,7 +82,6 @@ public class VentaService {
                 inventario.setStockActual(inventario.getStockActual().subtract(cantidadItem));
                 inventarioRepository.save(inventario);
             } else {
-                // Producto compuesto (consume insumos por receta)
                 List<ProductoInsumo> receta = productoInsumoRepository.findByProductoId(producto.getId());
                 for (ProductoInsumo recetaItem : receta) {
                     Inventario insumo = recetaItem.getInsumo();
@@ -92,7 +98,6 @@ public class VentaService {
                 }
             }
 
-            // 5. Construir el detalle de venta
             DetalleVenta detalle = DetalleVenta.builder()
                     .venta(venta)
                     .producto(producto)
@@ -107,7 +112,6 @@ public class VentaService {
         venta.setTotal(totalVenta);
         Venta ventaGuardada = ventaRepository.save(venta);
 
-        // 6. Envío de ticket por Telegram si el cliente está vinculado
         if (ventaGuardada.getCliente() != null && ventaGuardada.getCliente().getTelegramChatId() != null) {
             String tipoTicket = ventaGuardada.getEstado() == EstadoVenta.PAGADA ? "Recibo de Compra" : "Cargo Pendiente (Deuda)";
             String mensajeTicket = String.format(
@@ -149,8 +153,9 @@ public class VentaService {
                 .toList();
     }
 
+    // Método refactorizado: Ahora exige montoIngresado y procesa la caja, retornando el Record correcto
     @Transactional
-    public VentaResponseRecord liquidarDeuda(Long ventaId) {
+    public VentaResponseRecord liquidarDeuda(Long ventaId, BigDecimal montoIngresado) {
         Venta venta = ventaRepository.findById(ventaId)
                 .orElseThrow(() -> new EntityNotFoundException("Venta no encontrada con id: " + ventaId));
 
@@ -158,12 +163,39 @@ public class VentaService {
             throw new IllegalStateException("Esta cuenta ya se encuentra liquidada.");
         }
 
-        // 1. Cambiamos el estado a PAGADA. 
-        // (Nota: Aquí conectaremos el registro de "Movimiento de Caja" cuando creemos la tabla de Turnos).
+        // 1. Reglas anti-saldos negativos
+        if (montoIngresado.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El monto a cobrar debe ser mayor a cero.");
+        }
+
+        if (montoIngresado.compareTo(venta.getTotal()) > 0) {
+            throw new IllegalArgumentException(
+                String.format("Monto inválido. El cliente adeuda exactamente $%s, no puedes ingresar $%s.", 
+                venta.getTotal(), montoIngresado)
+            );
+        }
+
+        // 2. Cambiamos el estado a PAGADA[cite: 6]. 
         venta.setEstado(EstadoVenta.PAGADA);
         Venta ventaActualizada = ventaRepository.save(venta);
 
-        // 2. Enviar notificación de confirmación de pago por Telegram
+        // 3. Generar el Movimiento de Caja en el turno actual
+        Turno turnoActivo = turnoRepository.findByEstaActivoTrue()
+                .orElseThrow(() -> new IllegalStateException("Debes abrir un turno en caja antes de realizar cobros."));
+
+        MovimientoCaja ingresoDeuda = MovimientoCaja.builder()
+                .turno(turnoActivo)
+                .fechaHora(LocalDateTime.now())
+                .tipo("INGRESO_DEUDA")
+                .monto(montoIngresado)
+                .descripcion("Liquidación de deuda - Ticket #" + ventaActualizada.getId())
+                .ventaOrigenId(ventaActualizada.getId())
+                .build();
+        
+        movimientoCajaRepository.save(ingresoDeuda);
+        turnoActivo.setTotalIngresos(turnoActivo.getTotalIngresos().add(montoIngresado));
+
+        // 4. Enviar notificación de confirmación de pago por Telegram[cite: 6]
         if (ventaActualizada.getCliente() != null && ventaActualizada.getCliente().getTelegramChatId() != null) {
             String mensajePago = String.format(
                     "✅ *Pago Recibido - Cafetería*\n\nHola *%s*.\nHemos registrado la liquidación de tu ticket por *$%s*.\n\n¡Tu cuenta está al corriente, gracias!",
@@ -179,5 +211,70 @@ public class VentaService {
         }
 
         return new VentaResponseRecord(ventaActualizada);
+    }
+
+    @Transactional
+    public List<VentaResponseRecord> liquidarDeudasMasivas(List<Long> ventasIds, BigDecimal montoIngresado) {
+        List<Venta> tickets = ventaRepository.findAllById(ventasIds);
+
+        if (tickets.isEmpty()) {
+            throw new IllegalArgumentException("No se encontraron los tickets especificados.");
+        }
+
+        BigDecimal totalAdeudado = BigDecimal.ZERO;
+        Usuario cliente = tickets.get(0).getCliente(); // Tomamos el cliente del primer ticket
+
+        // 1. Validar estado y sumar el total real de los tickets
+        for (Venta ticket : tickets) {
+            if (ticket.getEstado() != EstadoVenta.PENDIENTE) {
+                throw new IllegalStateException("El ticket #" + ticket.getId() + " ya se encuentra liquidado.");
+            }
+            totalAdeudado = totalAdeudado.add(ticket.getTotal());
+        }
+
+        // 2. Regla anti-saldos negativos (Cobro exacto)
+        if (montoIngresado.compareTo(totalAdeudado) != 0) {
+            throw new IllegalArgumentException(
+                String.format("Monto inválido. Los tickets suman exactamente $%s, pero se intentó ingresar $%s.", 
+                totalAdeudado, montoIngresado)
+            );
+        }
+
+        // 3. Marcar todos como PAGADOS
+        tickets.forEach(ticket -> ticket.setEstado(EstadoVenta.PAGADA));
+        List<Venta> ventasActualizadas = ventaRepository.saveAll(tickets);
+
+        // 4. Registrar un único ingreso en la caja del turno actual
+        Turno turnoActivo = turnoRepository.findByEstaActivoTrue()
+                .orElseThrow(() -> new IllegalStateException("Debes abrir un turno en caja antes de realizar cobros."));
+
+        MovimientoCaja ingresoMasivo = MovimientoCaja.builder()
+                .turno(turnoActivo)
+                .fechaHora(LocalDateTime.now())
+                .tipo("INGRESO_DEUDA_MASIVA")
+                .monto(montoIngresado)
+                .descripcion("Liquidación masiva de " + tickets.size() + " tickets del cliente: " + (cliente != null ? cliente.getNombre() : "N/A"))
+                .build();
+        
+        movimientoCajaRepository.save(ingresoMasivo);
+        turnoActivo.setTotalIngresos(turnoActivo.getTotalIngresos().add(montoIngresado));
+
+        // 5. Enviar confirmación consolidada por Telegram
+        if (cliente != null && cliente.getTelegramChatId() != null) {
+            String mensajePago = String.format(
+                    "✅ *Pago Masivo Recibido - Cafetería*\n\nHola *%s*.\nHemos registrado la liquidación de %d tickets por un total de *$%s*.\n\n¡Tu cuenta está al corriente, gracias!",
+                    cliente.getNombre(),
+                    tickets.size(),
+                    montoIngresado
+            );
+            
+            try {
+                sedifTelegramBot.enviarMensaje(cliente.getTelegramChatId(), mensajePago);
+            } catch (Exception e) {
+                System.err.println("No se pudo enviar el recibo masivo por Telegram: " + e.getMessage());
+            }
+        }
+
+        return ventasActualizadas.stream().map(VentaResponseRecord::new).toList();
     }
 }

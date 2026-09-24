@@ -30,7 +30,7 @@ public class VentaResource {
 
     @GetMapping
     public ResponseEntity<List<VentaResponseRecord>> listarVentas() {
-        return ResponseEntity.ok(ventaService.obtenerTodas());
+        return ResponseEntity.ok(ventaService.obtenerTodas()); 
     }
 
     @GetMapping("/{id}")
@@ -44,7 +44,21 @@ public class VentaResource {
     }
 
     @PutMapping("/{id}/liquidar")
-    public ResponseEntity<VentaResponseRecord> liquidarDeuda(@PathVariable Long id) {
-        return ResponseEntity.ok(ventaService.liquidarDeuda(id));
+    public ResponseEntity<VentaResponseRecord> liquidarDeuda(
+            @PathVariable Long id,
+            @RequestBody @Valid LiquidarDeudaRequest request) {
+        
+        return ResponseEntity.ok(ventaService.liquidarDeuda(id, request.montoIngresado()));
+    }
+
+    @PutMapping("/liquidar-masiva")
+    public ResponseEntity<List<VentaResponseRecord>> liquidarDeudasMasivas(
+            @RequestBody @Valid LiquidarDeudaMasivaRequest request) {
+        
+        List<VentaResponseRecord> ventasLiquidadas = ventaService.liquidarDeudasMasivas(
+                request.ventasIds(), 
+                request.montoTotalIngresado()
+        );
+        return ResponseEntity.ok(ventasLiquidadas);
     }
 }
