@@ -72,4 +72,22 @@ public class InventarioService {
         inventario.setActivo(!inventario.getActivo());
         inventarioRepository.save(inventario);
     }
+
+    @org.springframework.transaction.annotation.Transactional
+    public InventarioResponseRecord registrarAjuste(Long id, AjusteInventarioRequest request) {
+        Inventario inventario = inventarioRepository.findById(id)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Registro de inventario no encontrado"));
+
+        if ("MERMA".equalsIgnoreCase(request.tipoAjuste())) {
+            java.math.BigDecimal nuevoStock = inventario.getStockActual().subtract(request.cantidad());
+            if (nuevoStock.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                nuevoStock = java.math.BigDecimal.ZERO;
+            }
+            inventario.setStockActual(nuevoStock);
+        } else if ("CONTEO_MANUAL".equalsIgnoreCase(request.tipoAjuste())) {
+            inventario.setStockActual(request.cantidad());
+        }
+
+        return new InventarioResponseRecord(inventarioRepository.save(inventario));
+    }
 }

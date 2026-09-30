@@ -3,11 +3,12 @@ import {
   Container, Typography, Box, Button, Table, TableBody, TableCell,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, MenuItem, Chip, Grid, IconButton, Tooltip,
-  InputAdornment
+  InputAdornment, Alert, AlertTitle
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import api from '../../api/axiosClient';
 
 export default function Inventario() {
@@ -15,9 +16,16 @@ export default function Inventario() {
   const [categorias, setCategorias] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [openStockDialog, setOpenStockDialog] = useState(false);
+  const [openAjusteDialog, setOpenAjusteDialog] = useState(false);
   const [editId, setEditId] = useState(null);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [stockExtra, setStockExtra] = useState('');
+  
+  const [ajusteData, setAjusteData] = useState({
+    tipoAjuste: 'MERMA',
+    cantidad: '',
+    motivo: ''
+  });
   
   const [formData, setFormData] = useState({
     nombre: '',
@@ -68,7 +76,6 @@ export default function Inventario() {
     return `${Math.floor(cantidad)} unidades`;
   };
 
-  // Determina unidad, sufijo y texto descriptivo para el modal de reabastecimiento
   const obtenerDetallesUnidad = (item) => {
     if (!item) return { esPieza: true, unidadMedEnum: 'UNIDAD', unidadTexto: 'Piezas', sufijo: 'pza', factor: 1 };
     
@@ -86,6 +93,13 @@ export default function Inventario() {
     }
     return { esPieza: true, unidadMedEnum: 'UNIDAD', unidadTexto: 'Piezas / Unidades', sufijo: 'pza', factor: 1 };
   };
+
+  const insumosCriticos = inventario.filter((item) => {
+    const inv = item.inventario || item;
+    const actual = parseFloat(inv.stockActual ?? item.stockActual ?? 0);
+    const minimo = parseFloat(inv.stockMinimo ?? item.stockMinimo ?? 0);
+    return actual <= minimo;
+  });
 
   const handleOpenCreate = () => {
     setEditId(null);
@@ -123,35 +137,18 @@ export default function Inventario() {
       uniVisual = 'Piezas';
     } else {
       if (uniMed.includes('MILILITRO') || uniMed.includes('LITRO')) {
-        if (cant >= 1000 || min >= 1000) { 
-          uniVisual = 'Litros'; 
-          cant /= 1000; 
-          min /= 1000; 
-        } else { 
-          uniVisual = 'Mililitros'; 
-        }
+        if (cant >= 1000 || min >= 1000) { uniVisual = 'Litros'; cant /= 1000; min /= 1000; } 
+        else { uniVisual = 'Mililitros'; }
       } else if (uniMed.includes('GRAMO') || uniMed.includes('KILO')) {
-        if (cant >= 1000 || min >= 1000) { 
-          uniVisual = 'Kilos'; 
-          cant /= 1000; 
-          min /= 1000; 
-        } else { 
-          uniVisual = 'Gramos'; 
-        }
-      } else {
-        uniVisual = 'Piezas';
-      }
+        if (cant >= 1000 || min >= 1000) { uniVisual = 'Kilos'; cant /= 1000; min /= 1000; } 
+        else { uniVisual = 'Gramos'; }
+      } else { uniVisual = 'Piezas'; }
     }
 
     setFormData({
-      nombre: item.nombre || '',
-      descripcion: item.descripcion || '',
-      precio: item.precio || 0,
-      categoriaId: item.categoria?.id || item.categoriaId || '',
-      esDirecto: esDirectoVal,
-      cantidad: cant,
-      stockMinimo: min,
-      unidadVisual: uniVisual
+      nombre: item.nombre || '', descripcion: item.descripcion || '',
+      precio: item.precio || 0, categoriaId: item.categoria?.id || item.categoriaId || '',
+      esDirecto: esDirectoVal, cantidad: cant, stockMinimo: min, unidadVisual: uniVisual
     });
     
     setEditId(item.id);
@@ -164,20 +161,21 @@ export default function Inventario() {
     setOpenStockDialog(true);
   };
 
+  const handleOpenAjuste = (item) => {
+    setProductoSeleccionado(item);
+    setAjusteData({ tipoAjuste: 'MERMA', cantidad: '', motivo: '' });
+    setOpenAjusteDialog(true);
+  };
+
   const handleKeyDownNumerico = (e, permiteDecimales) => {
-    if (['e', 'E', '+', '-'].includes(e.key)) {
-      e.preventDefault();
-    }
-    if (!permiteDecimales && (e.key === '.' || e.key === ',')) {
-      e.preventDefault();
-    }
+    if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+    if (!permiteDecimales && (e.key === '.' || e.key === ',')) e.preventDefault();
   };
 
   const handleGuardarStockExtra = async () => {
     if (!productoSeleccionado) return;
-
     const extraVal = parseFloat(stockExtra);
-
+    
     if (isNaN(extraVal) || extraVal <= 0) {
       alert("Por favor ingresa una cantidad válida y mayor a cero.");
       return;
@@ -185,7 +183,6 @@ export default function Inventario() {
 
     const inv = productoSeleccionado.inventario || productoSeleccionado;
     const stockActualVal = parseFloat(inv.stockActual ?? productoSeleccionado.stockActual ?? 0) || 0;
-    
     const detalles = obtenerDetallesUnidad(productoSeleccionado);
 
     if (detalles.esPieza && !Number.isInteger(extraVal)) {
@@ -193,9 +190,7 @@ export default function Inventario() {
       return;
     }
 
-    // Se convierte de Kg/L a la unidad base (Gramos/Mililitros)
     const extraBase = detalles.esPieza ? extraVal : extraVal * detalles.factor;
-
     const nuevoStockTotal = stockActualVal + extraBase;
     const idCat = productoSeleccionado.categoria?.id || productoSeleccionado.categoriaId;
 
@@ -223,6 +218,41 @@ export default function Inventario() {
     }
   };
 
+  const handleGuardarAjuste = async () => {
+    if (!productoSeleccionado) return;
+    const cantVal = parseFloat(ajusteData.cantidad);
+    
+    if (isNaN(cantVal) || cantVal < 0) {
+      alert("Ingresa una cantidad válida mayor o igual a 0.");
+      return;
+    }
+    if (!ajusteData.motivo.trim()) {
+      alert("Debes proporcionar un motivo para el ajuste (Ej. Caducidad, Caída).");
+      return;
+    }
+
+    const detalles = obtenerDetallesUnidad(productoSeleccionado);
+    if (detalles.esPieza && !Number.isInteger(cantVal)) {
+      alert("Para productos por pieza solo se permiten números enteros.");
+      return;
+    }
+
+    const cantidadBase = detalles.esPieza ? cantVal : cantVal * detalles.factor;
+    const invId = productoSeleccionado.inventario?.id || productoSeleccionado.id;
+
+    try {
+      await api.post(`/inventario/${invId}/ajustes`, {
+        cantidad: cantidadBase,
+        tipoAjuste: ajusteData.tipoAjuste,
+        motivo: ajusteData.motivo
+      });
+      setOpenAjusteDialog(false);
+      cargarDatos();
+    } catch (error) {
+      alert("Error al aplicar el ajuste de inventario.");
+    }
+  };
+
   const handleGuardar = async () => {
     if (!formData.nombre.trim()) {
       alert("El nombre del producto es obligatorio.");
@@ -237,12 +267,10 @@ export default function Inventario() {
       alert("El stock inicial debe ser un número mayor o igual a 0.");
       return;
     }
-
     if (isNaN(minimoVal) || minimoVal < 0) {
       alert("El stock mínimo debe ser un número mayor o igual a 0.");
       return;
     }
-
     if (formData.esDirecto && (isNaN(precioVal) || precioVal < 0)) {
       alert("El precio de venta debe ser un valor válido mayor o igual a 0.");
       return;
@@ -263,25 +291,11 @@ export default function Inventario() {
       unidadBase = 'UNIDAD';
     } else {
       switch (formData.unidadVisual) {
-        case 'Litros': 
-          cantidadFinal *= 1000; 
-          minimoFinal *= 1000; 
-          unidadBase = 'MILILITROS'; 
-          break;
-        case 'Mililitros': 
-          unidadBase = 'MILILITROS'; 
-          break;
-        case 'Kilos': 
-          cantidadFinal *= 1000; 
-          minimoFinal *= 1000; 
-          unidadBase = 'GRAMOS'; 
-          break;
-        case 'Gramos': 
-          unidadBase = 'GRAMOS'; 
-          break;
-        default: 
-          unidadBase = 'UNIDAD';
-          break;
+        case 'Litros': cantidadFinal *= 1000; minimoFinal *= 1000; unidadBase = 'MILILITROS'; break;
+        case 'Mililitros': unidadBase = 'MILILITROS'; break;
+        case 'Kilos': cantidadFinal *= 1000; minimoFinal *= 1000; unidadBase = 'GRAMOS'; break;
+        case 'Gramos': unidadBase = 'GRAMOS'; break;
+        default: unidadBase = 'UNIDAD'; break;
       }
     }
 
@@ -324,6 +338,25 @@ export default function Inventario() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      
+      {insumosCriticos.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Alert severity="error" variant="filled">
+            <AlertTitle sx={{ fontWeight: 'bold' }}>Atención: Insumos con Stock Crítico</AlertTitle>
+            Los siguientes artículos están por debajo del nivel mínimo configurado:
+            <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+              {insumosCriticos.map((item) => (
+                <li key={item.id}>
+                  <Typography variant="body2">
+                    <strong>{item.nombre}</strong> — Quedan: {formatearUnidad(item.inventario?.stockActual ?? item.stockActual, item)}
+                  </Typography>
+                </li>
+              ))}
+            </ul>
+          </Alert>
+        </Box>
+      )}
+
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h5" fontWeight="bold">Control de Inventario y Productos</Typography>
         <Button 
@@ -343,7 +376,6 @@ export default function Inventario() {
               <TableCell><b>Producto</b></TableCell>
               <TableCell><b>Descripción</b></TableCell>
               <TableCell><b>Categoría</b></TableCell>
-              <TableCell><b>Precio</b></TableCell>
               <TableCell><b>Tipo</b></TableCell>
               <TableCell align="center"><b>Stock Disponible</b></TableCell>
               <TableCell align="center"><b>Stock Mínimo</b></TableCell>
@@ -362,19 +394,18 @@ export default function Inventario() {
                   <TableCell sx={{ fontWeight: 'bold' }}>{item.nombre}</TableCell>
                   <TableCell>{item.descripcion || '-'}</TableCell>
                   <TableCell>{item.categoria?.nombre || '-'}</TableCell>
-                  <TableCell>${Number(item.precio || 0).toFixed(2)}</TableCell>
                   <TableCell>
-                    <Chip 
-                      label={esDirectoVal ? 'Venta Directa' : 'Materia Prima'} 
-                      color={esDirectoVal ? 'info' : 'secondary'} 
-                      size="small"
-                    />
+                    <Chip label={esDirectoVal ? 'Venta Directa' : 'Materia Prima'} color={esDirectoVal ? 'info' : 'secondary'} size="small" />
                   </TableCell>
                   <TableCell align="center">
                     <Chip 
                       label={formatearUnidad(stockActualVal, item)} 
                       size="small"
-                      sx={{ backgroundColor: '#f5f5f5', color: '#555', fontWeight: '500' }}
+                      sx={{ 
+                        backgroundColor: stockActualVal <= stockMinimoVal ? '#ffebee' : '#f5f5f5', 
+                        color: stockActualVal <= stockMinimoVal ? '#c62828' : '#555', 
+                        fontWeight: 'bold' 
+                      }}
                     />
                   </TableCell>
                   <TableCell align="center" sx={{ color: 'text.secondary' }}>
@@ -384,6 +415,11 @@ export default function Inventario() {
                     <Tooltip title="Reabastecer / Sumar Stock">
                       <IconButton onClick={() => handleOpenSumarStock(item)} sx={{ color: '#2e7d32' }}>
                         <Inventory2Icon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Ajuste o Merma">
+                      <IconButton onClick={() => handleOpenAjuste(item)} sx={{ color: '#f57c00' }}>
+                        <WarningAmberIcon />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Editar Producto">
@@ -397,7 +433,7 @@ export default function Inventario() {
             })}
             {inventario.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                   No hay productos o insumos registrados.
                 </TableCell>
               </TableRow>
@@ -406,47 +442,24 @@ export default function Inventario() {
         </Table>
       </Paper>
 
-      {/* Modal Crear / Editar */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>{editId ? 'Editar Registro' : 'Nuevo Registro'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} sm={6}>
-              <TextField
-                label="Nombre del Producto/Insumo"
-                fullWidth
-                value={formData.nombre}
-                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-              />
+              <TextField label="Nombre del Producto/Insumo" fullWidth value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="Tipo de Registro"
-                fullWidth
-                value={formData.esDirecto}
-                onChange={handleTipoRegistroChange}
-              >
+              <TextField select label="Tipo de Registro" fullWidth value={formData.esDirecto} onChange={handleTipoRegistroChange}>
                 <MenuItem value={true}>Venta Directa (Ej. Papas, Agua)</MenuItem>
                 <MenuItem value={false}>Materia Prima (Ej. Leche, Café)</MenuItem>
               </TextField>
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                label="Descripción"
-                fullWidth
-                value={formData.descripcion}
-                onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-              />
+              <TextField label="Descripción" fullWidth value={formData.descripcion} onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="Categoría"
-                fullWidth
-                value={formData.categoriaId}
-                onChange={(e) => setFormData({ ...formData, categoriaId: e.target.value })}
-              >
+              <TextField select label="Categoría" fullWidth value={formData.categoriaId} onChange={(e) => setFormData({ ...formData, categoriaId: e.target.value })}>
                 <MenuItem value=""><em>Sin categoría</em></MenuItem>
                 {categorias.map((cat) => (
                   <MenuItem key={cat.id} value={cat.id}>{cat.nombre}</MenuItem>
@@ -455,47 +468,31 @@ export default function Inventario() {
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Precio de Venta ($)"
-                type="number"
-                fullWidth
-                onKeyDown={(e) => handleKeyDownNumerico(e, true)}
-                inputProps={{ min: 0, step: "0.01" }}
-                disabled={!formData.esDirecto}
+                label="Precio de Venta ($)" type="number" fullWidth onKeyDown={(e) => handleKeyDownNumerico(e, true)}
+                inputProps={{ min: 0, step: "0.01" }} disabled={!formData.esDirecto}
                 helperText={!formData.esDirecto ? "La materia prima no tiene precio directo" : ""}
-                value={formData.precio}
-                onChange={(e) => setFormData({ ...formData, precio: e.target.value })}
+                value={formData.precio} onChange={(e) => setFormData({ ...formData, precio: e.target.value })}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField
-                label="Stock Inicial"
-                type="number"
-                fullWidth
-                onKeyDown={(e) => handleKeyDownNumerico(e, permiteDecimales)}
+                label="Stock Inicial" type="number" fullWidth onKeyDown={(e) => handleKeyDownNumerico(e, permiteDecimales)}
                 inputProps={{ min: 0, step: permiteDecimales ? "any" : "1" }}
                 helperText={!permiteDecimales ? "Solo números enteros" : "Soporta decimales"}
-                value={formData.cantidad}
-                onChange={(e) => setFormData({ ...formData, cantidad: e.target.value })}
+                value={formData.cantidad} onChange={(e) => setFormData({ ...formData, cantidad: e.target.value })}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField
-                label="Stock Mínimo"
-                type="number"
-                fullWidth
-                onKeyDown={(e) => handleKeyDownNumerico(e, permiteDecimales)}
+                label="Stock Mínimo" type="number" fullWidth onKeyDown={(e) => handleKeyDownNumerico(e, permiteDecimales)}
                 inputProps={{ min: 0, step: permiteDecimales ? "any" : "1" }}
                 helperText={!permiteDecimales ? "Solo números enteros" : "Soporta decimales"}
-                value={formData.stockMinimo}
-                onChange={(e) => setFormData({ ...formData, stockMinimo: e.target.value })}
+                value={formData.stockMinimo} onChange={(e) => setFormData({ ...formData, stockMinimo: e.target.value })}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField
-                select
-                label="Unidad de Medida"
-                fullWidth
-                disabled={formData.esDirecto}
+                select label="Unidad de Medida" fullWidth disabled={formData.esDirecto}
                 helperText={formData.esDirecto ? "Venta directa solo permite Piezas" : ""}
                 value={formData.esDirecto ? 'Piezas' : formData.unidadVisual}
                 onChange={(e) => setFormData({ ...formData, unidadVisual: e.target.value })}
@@ -514,8 +511,7 @@ export default function Inventario() {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Modal Reabastecer Stock */}
+      
       <Dialog open={openStockDialog} onClose={() => setOpenStockDialog(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Reabastecer Stock</DialogTitle>
         <DialogContent>
@@ -524,39 +520,64 @@ export default function Inventario() {
               Producto: <b>{productoSeleccionado?.nombre}</b>
             </Typography>
             <TextField
-              label={`Cantidad a sumar (${detallesStockDialog.sufijo})`}
-              type="number"
-              fullWidth
-              autoFocus
-              sx={{ mt: 2 }}
+              label={`Cantidad a sumar (${detallesStockDialog.sufijo})`} type="number" fullWidth autoFocus sx={{ mt: 2 }}
               onKeyDown={(e) => handleKeyDownNumerico(e, !detallesStockDialog.esPieza)}
-              inputProps={{ 
-                min: 0, 
-                step: detallesStockDialog.esPieza ? "1" : "any" 
-              }}
+              inputProps={{ min: 0, step: detallesStockDialog.esPieza ? "1" : "any" }}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
-                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#666' }}>
-                      {detallesStockDialog.sufijo}
-                    </Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#666' }}>{detallesStockDialog.sufijo}</Typography>
                   </InputAdornment>
                 )
               }}
-              value={stockExtra}
-              onChange={(e) => setStockExtra(e.target.value)}
-              helperText={
-                detallesStockDialog.esPieza
-                  ? "Ingresa números enteros únicamente." 
-                  : `Ingresa la cantidad en ${detallesStockDialog.unidadTexto} (Ej: 0.5 = 500 ${detallesStockDialog.unidadMedEnum === 'GRAMOS' ? 'g' : 'ml'}, 1 = 1 ${detallesStockDialog.sufijo}).`
-              }
+              value={stockExtra} onChange={(e) => setStockExtra(e.target.value)}
+              helperText={detallesStockDialog.esPieza ? "Ingresa números enteros únicamente." : `Ingresa la cantidad en ${detallesStockDialog.unidadTexto}.`}
             />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenStockDialog(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleGuardarStockExtra} sx={{ backgroundColor: '#2e7d32' }}>
-            Sumar Stock
+          <Button variant="contained" onClick={handleGuardarStockExtra} sx={{ backgroundColor: '#2e7d32' }}>Sumar Stock</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openAjusteDialog} onClose={() => setOpenAjusteDialog(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: '#f57c00', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WarningAmberIcon /> Ajuste de Inventario
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="body2" gutterBottom>
+              Producto: <b>{productoSeleccionado?.nombre}</b>
+            </Typography>
+            
+            <TextField
+              select label="Tipo de Ajuste" fullWidth sx={{ mt: 2 }}
+              value={ajusteData.tipoAjuste} onChange={(e) => setAjusteData({ ...ajusteData, tipoAjuste: e.target.value })}
+            >
+              <MenuItem value="MERMA">Merma / Pérdida (Restar del stock)</MenuItem>
+              <MenuItem value="CONTEO_MANUAL">Conteo Físico (Reemplazar stock total)</MenuItem>
+            </TextField>
+
+            <TextField
+              label={ajusteData.tipoAjuste === 'MERMA' ? `Cantidad a restar (${detallesStockDialog.sufijo})` : `Nuevo total en físico (${detallesStockDialog.sufijo})`}
+              type="number" fullWidth sx={{ mt: 2 }} onKeyDown={(e) => handleKeyDownNumerico(e, !detallesStockDialog.esPieza)}
+              inputProps={{ min: 0, step: detallesStockDialog.esPieza ? "1" : "any" }}
+              InputProps={{ endAdornment: <InputAdornment position="end">{detallesStockDialog.sufijo}</InputAdornment> }}
+              value={ajusteData.cantidad} onChange={(e) => setAjusteData({ ...ajusteData, cantidad: e.target.value })}
+            />
+
+            <TextField
+              label="Motivo o Justificación" fullWidth multiline rows={2} sx={{ mt: 2 }}
+              placeholder="Ej. Pan con hongo, leche caducada, conteo fin de mes..."
+              value={ajusteData.motivo} onChange={(e) => setAjusteData({ ...ajusteData, motivo: e.target.value })}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenAjusteDialog(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleGuardarAjuste} sx={{ backgroundColor: '#f57c00', color: 'white' }}>
+            Aplicar Ajuste
           </Button>
         </DialogActions>
       </Dialog>

@@ -4,22 +4,24 @@ import java.math.BigDecimal;
 
 public record ClienteResponseRecord(
         Long id,
+        String numeroControlEmpleado,
         String nombre,
         String email,
         String telefono,
-        String telegramChatId,
         PreferenciaNotificacion preferenciaNotificacion,
-        BigDecimal saldoDeudor
+        BigDecimal saldoDeudor,
+        String passwordGenerada
 ) {
-    public ClienteResponseRecord(Cliente cliente) {
+    public ClienteResponseRecord(Cliente cliente, String passwordGenerada) {
         this(
                 cliente.getId(),
+                cliente.getNumeroControlEmpleado(),
                 cliente.getNombre(),
                 cliente.getEmail(),
                 cliente.getTelefono(),
-                cliente.getTelegramChatId(),
                 cliente.getPreferenciaNotificacion(),
-                cliente.getSaldoDeudor()
+                cliente.getSaldoDeudor(),
+                passwordGenerada
         );
     }
 }

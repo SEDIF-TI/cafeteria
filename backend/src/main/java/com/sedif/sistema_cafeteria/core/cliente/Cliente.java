@@ -21,6 +21,9 @@ public class Cliente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "numero_control_empleado", nullable = false, unique = true, length = 50)
+    private String numeroControlEmpleado;
+
     @Column(nullable = false, length = 100)
     private String nombre;
 
@@ -30,8 +33,8 @@ public class Cliente {
     @Column(length = 20)
     private String telefono;
 
-    @Column(name = "telegram_chat_id", length = 50)
-    private String telegramChatId;
+    @Column(nullable = false)
+    private String password;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "preferencia_notificacion", nullable = false)

@@ -1,5 +1,5 @@
 export const coloresInstitucionales = {
-    primario: '#691C32', // Guinda institucional
+    primario: '#f445c3', // Guinda institucional
     secundario: '#9F2241',
     dorado: '#BC955C',
     fondo: '#F4F6F8', // Gris claro para el fondo de la app
