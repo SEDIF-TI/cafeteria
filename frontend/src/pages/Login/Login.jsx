@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import { AuthContext } from '../../context/AuthContext'; // Asegúrate de que la ruta a tu AuthContext sea correcta
+import { AuthContext } from '../../context/AuthContext';
 
 import logoPuebla from '../../assets/logo-puebla.png';
 
@@ -24,7 +24,6 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
-  // Traemos la función de login desde tu contexto global
   const { login } = useContext(AuthContext);
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
@@ -36,10 +35,7 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // Usamos la función del contexto, que ya apunta a /api/v1/auth/login y guarda el 'user'
       await login(identificador, password);
-      
-      // Si el login es exitoso, redirigimos
       navigate('/dashboard');
     } catch (err) {
       setError('Credenciales incorrectas o el usuario está inactivo.');
@@ -75,7 +71,7 @@ const Login = () => {
           <img
             src={logoPuebla}
             alt="Gobierno del Estado"
-            style={{ maxHeight: '120px', objectFit: 'contain' }}
+            style={{ maxHeight: '110px', objectFit: 'contain' }}
           />
         </Box>
 
@@ -149,7 +145,7 @@ const Login = () => {
             variant="contained"
             disabled={isLoading}
             sx={{
-              backgroundColor: '#691c32',
+              backgroundColor: '#fcb9ff',
               color: 'white',
               padding: '12px',
               fontSize: '1rem',
@@ -158,7 +154,7 @@ const Login = () => {
               borderRadius: '8px',
               boxShadow: 'none',
               '&:hover': {
-                backgroundColor: '#521526',
+                backgroundColor: '#f4a9be',
                 boxShadow: 'none',
               },
             }}

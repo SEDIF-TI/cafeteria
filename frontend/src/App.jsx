@@ -1,43 +1,55 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-import { AuthProvider } from "./context/AuthContext";
-import Login from "./pages/Login/Login"; 
-
+// Layout principal
 import MainLayout from "./components/MainLayout";
 
+// Páginas Públicas
+import Login from "./pages/Login/Login"; 
+import RegistroClientePublico from "./pages/registro-cliente/RegistroClientePublico";
+import ClienteLogin from "./pages/cliente/ClienteLogin";
+import ConsultaTickets from "./pages/cliente/ConsultaTickets";
+
+// Páginas Privadas del Dashboard
 import Usuarios from "./pages/Administracion/Usuarios";
-import Ventas from "./pages/Venta/Ventas";
 import Categorias from "./pages/Categoria/Categorias";
-import Inventario from "./pages/Inventario/Inventario";
 import Deudores from "./pages/Deudas/Deudores";
+import Inventario from "./pages/Inventario/Inventario";
 import MenuCafeteria from "./pages/Menu/MenuCafeteria";
 import Recetas from "./pages/Receta/Recetas";
-
-const DashboardHome = () => <h2>Bienvenido al Panel de Operaciones</h2>;
+import Ventas from "./pages/Venta/Ventas";
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
+    <BrowserRouter>
+      <Routes>
+        {/* Rutas Públicas */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/Login" element={<Navigate to="/login" replace />} />
+        <Route path="/registro-cliente" element={<RegistroClientePublico />} />
+        <Route path="/cliente/login" element={<ClienteLogin />} />
+        <Route path="/cliente/tickets" element={<ConsultaTickets />} />
 
-          <Route path="/dashboard" element={<MainLayout />}>
-            <Route index element={<DashboardHome />} />
-            <Route path="categorias" element={<Categorias />} />
-            <Route path="menu" element={<MenuCafeteria />} />
-            <Route path="ventas" element={<Ventas />} />
-            <Route path="inventario" element={<Inventario />} />
-            <Route path="recetas" element={<Recetas />} />
-            <Route path="usuarios" element={<Usuarios />} />
-            <Route path="deudores" element={<Deudores />} />
-          </Route>
+        {/* Panel de Operación */}
+        <Route path="/dashboard" element={<MainLayout />}>
+          <Route index element={<MenuCafeteria />} /> 
+          
+          <Route path="categorias" element={<Categorias />} />
+          <Route path="menu" element={<MenuCafeteria />} />
+          <Route path="ventas" element={<Ventas />} />
+          <Route path="inventario" element={<Inventario />} />
+          <Route path="recetas" element={<Recetas />} />
+          
+          {/* Mapeos para la vista de usuarios/personal */}
+          <Route path="personal" element={<Usuarios />} />
+          <Route path="usuarios" element={<Usuarios />} />
+          <Route path="deudores" element={<Deudores />} />
+        </Route>
 
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+        {/* Redirecciones */}
+        <Route path="/" element={<Navigate to="/cliente/login" replace />} />
+        <Route path="*" element={<Navigate to="/cliente/login" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

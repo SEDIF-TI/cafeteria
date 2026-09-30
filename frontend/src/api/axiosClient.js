@@ -1,13 +1,15 @@
 import axios from 'axios';
 
+// Detecta automáticamente si estás en localhost o en la IP de red
+const currentHost = window.location.hostname; // Retornará 'localhost' o '192.168.1.141'
+
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api/v1'
+  baseURL: `http://${currentHost}:8080/api/v1`
 });
 
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
-    // Validar que el token exista y no sea la palabra "undefined" o "null"
     if (token && token !== 'undefined' && token !== 'null') {
       config.headers.Authorization = `Bearer ${token}`;
     }
