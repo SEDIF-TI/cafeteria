@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from 'axios';
 import {
   Box,
   Container,
@@ -22,19 +23,42 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import PaymentIcon from '@mui/icons-material/Payment';
 
-// Datos simulados de adeudos pendientes
-const DEUDORES_INICIALES = [
-  { id: 1, nombre: 'Juan Pérez', area: 'Recursos Humanos', totalDeuda: 145.00, fechaUltima: '2026-09-01', estado: 'Pendiente' },
-  { id: 2, nombre: 'María López', area: 'Servicios Generales', totalDeuda: 65.00, fechaUltima: '2026-09-02', estado: 'Pendiente' },
-  { id: 3, nombre: 'Carlos Sánchez', area: 'Informática', totalDeuda: 110.50, fechaUltima: '2026-08-30', estado: 'Pendiente' },
-];
-
 export default function Deudores() {
-  const [deudores, setDeudores] = useState(DEUDORES_INICIALES);
+  const [deudores, setDeudores] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [modalAbono, setModalAbono] = useState(false);
   const [deudorSeleccionado, setDeudorSeleccionado] = useState(null);
   const [montoAbono, setMontoAbono] = useState('');
+
+  // Cargar deudas del backend al iniciar
+  useEffect(() => {
+    const obtenerDeudores = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get('http://localhost:8080/api/v1/ventas', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        // Filtrar solo las ventas con estado PENDIENTE y mapearlas al formato de tu tabla
+        const pendientes = response.data
+          .filter(v => v.estado === 'PENDIENTE')
+          .map(v => ({
+            id: v.id,
+            nombre: v.clienteNombre || 'Público General',
+            area: 'Cliente / General', // O el campo de área si lo tienes en el cliente
+            totalDeuda: v.total,
+            fechaUltima: v.fechaCreacion ? v.fechaCreacion.split('T')[0] : '',
+            estado: 'Pendiente'
+          }));
+
+        setDeudores(pendientes);
+      } catch (error) {
+        console.error('Error al cargar deudas:', error);
+      }
+    };
+
+    obtenerDeudores();
+  }, []);
 
   const deudoresFiltrados = deudores.filter(d => 
     d.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -47,23 +71,43 @@ export default function Deudores() {
     setModalAbono(true);
   };
 
-  const procesarPago = () => {
+ const [loadingPago, setLoadingPago] = useState(false);
+
+  const procesarPago = async () => {
     const abono = parseFloat(montoAbono);
-    if (isNaN(abono) || abono <= 0) return;
+    if (isNaN(abono) || abono <= 0 || !deudorSeleccionado) return;
 
-    setDeudores(prev => prev.map(d => {
-      if (d.id === deudorSeleccionado.id) {
-        const nuevaDeuda = d.totalDeuda - abono;
-        return {
-          ...d,
-          totalDeuda: nuevaDeuda > 0 ? nuevaDeuda : 0,
-          estado: nuevaDeuda <= 0 ? 'Pagado' : 'Pendiente'
-        };
-      }
-      return d;
-    }).filter(d => d.totalDeuda > 0)); // Opcional: remueve si la deuda llega a 0
+    // Validación frontal Solo bloqueamos si intentan abonar MÁS de lo que deben
+    if (abono > deudorSeleccionado.totalDeuda) {
+      alert(`No puedes abonar más del adeudo total ($${deudorSeleccionado.totalDeuda.toFixed(2)})`);
+      return;
+    }
 
-    setModalAbono(false);
+    setLoadingPago(true);
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(`http://localhost:8080/api/v1/ventas/${deudorSeleccionado.id}/liquidar`, {
+        montoIngresado: abono
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      // Actualizar la lista localmente con la resta matemática
+      setDeudores(prev => prev.map(d => {
+        if (d.id === deudorSeleccionado.id) {
+          return { ...d, totalDeuda: d.totalDeuda - abono };
+        }
+        return d;
+      }).filter(d => d.totalDeuda > 0)); // Si la deuda llega a 0, desaparece de la lista
+
+      setModalAbono(false);
+    } catch (error) {
+      console.error('Error al procesar el pago:', error);
+      const mensajeError = error.response?.data?.message || 'Error al procesar el pago con el servidor.';
+      alert(mensajeError);
+    } finally {
+      setLoadingPago(false);
+    }
   };
 
   return (
@@ -106,7 +150,7 @@ export default function Deudores() {
                 <TableCell>{item.nombre}</TableCell>
                 <TableCell>{item.area}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 'bold', color: 'error.main' }}>
-                  ${item.totalDeuda.toFixed(2)}
+                  ${Number(item.totalDeuda).toFixed(2)}
                 </TableCell>
                 <TableCell align="center">{item.fechaUltima}</TableCell>
                 <TableCell align="center">
@@ -148,10 +192,10 @@ export default function Deudores() {
           {deudorSeleccionado && (
             <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Typography variant="body2">
-                Empleado: <b>{deudorSeleccionado.nombre}</b>
+                Cliente / Empleado: <b>{deudorSeleccionado.nombre}</b>
               </Typography>
               <Typography variant="body2" color="error.main">
-                Adeudo Actual: <b>${deudorSeleccionado.totalDeuda.toFixed(2)}</b>
+                Adeudo Actual: <b>${Number(deudorSeleccionado.totalDeuda).toFixed(2)}</b>
               </Typography>
               <TextField
                 label="Monto a Pagar / Abonar"
@@ -173,9 +217,9 @@ export default function Deudores() {
             onClick={procesarPago} 
             variant="contained" 
             color="success"
-            disabled={!montoAbono || parseFloat(montoAbono) <= 0}
+            disabled={loadingPago || !montoAbono || parseFloat(montoAbono) <= 0}
           >
-            Confirmar Pago
+            {loadingPago ? 'Procesando pago...' : 'Confirmar Pago'}
           </Button>
         </DialogActions>
       </Dialog>

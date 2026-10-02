@@ -164,18 +164,26 @@ public class VentaService {
             throw new IllegalStateException("Esta cuenta ya se encuentra liquidada.");
         }
 
-        if (montoIngresado.compareTo(BigDecimal.ZERO) <= 0) {
+        if (montoIngresado == null || montoIngresado.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El monto a cobrar debe ser mayor a cero.");
         }
 
         if (montoIngresado.compareTo(venta.getTotal()) > 0) {
             throw new IllegalArgumentException(
-                String.format("Monto inválido. El cliente adeuda exactamente $%s, no puedes ingresar $%s.", 
+                String.format("Monto inválido. El ticket adeuda $%s, no puedes abonar $%s.", 
                 venta.getTotal(), montoIngresado)
             );
         }
 
-        venta.setEstado(EstadoVenta.PAGADA);
+        // Restar el abono al total del ticket para llevar el control del saldo
+        BigDecimal saldoRestante = venta.getTotal().subtract(montoIngresado);
+        venta.setTotal(saldoRestante);
+
+        // Si el saldo restante llega a 0, el ticket por fin se marca como PAGADO
+        if (saldoRestante.compareTo(BigDecimal.ZERO) == 0) {
+            venta.setEstado(EstadoVenta.PAGADA);
+        }
+        
         Venta ventaActualizada = ventaRepository.save(venta);
 
         Turno turnoActivo = turnoRepository.findByEstaActivoTrue()
