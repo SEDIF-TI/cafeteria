@@ -1,5 +1,6 @@
 package com.sedif.sistema_cafeteria.core.inventario;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -12,14 +13,17 @@ public record InventarioRequestRecord(
         String nombre,
 
         @NotNull(message = "La unidad de medida es obligatoria")
+        @JsonAlias({"unidad_medida", "unidadMedida"})
         UnidadMedida unidadMedida,
 
         @NotNull(message = "El stock actual es obligatorio")
         @DecimalMin(value = "0.0", message = "El stock actual no puede ser negativo")
+        @JsonAlias({"stock_actual", "stockActual"})
         BigDecimal stockActual,
 
         @NotNull(message = "El stock mínimo es obligatorio")
         @DecimalMin(value = "0.0", message = "El stock mínimo no puede ser negativo")
+        @JsonAlias({"stock_minimo", "stockMinimo"})
         BigDecimal stockMinimo
 ) {
 }

@@ -35,14 +35,14 @@ public record VentaResponseRecord(
 
     public VentaResponseRecord(Venta venta) {
         this(
-            venta.getId(),
+            venta.getPnId(),
             venta.getUsuario().getId(),
             venta.getUsuario().getNombre(), // Ajusta según el campo de nombre en tu entidad Usuario
             venta.getTotal(),
             venta.getAuditable().getFechaCreacion(),
             venta.getDetalles().stream().map(DetalleVentaResponseRecord::new).toList(),
             venta.getEstado(),
-            venta.getCliente() != null ? venta.getCliente().getId() : null,
+            venta.getCliente() != null ? venta.getCliente().getPnId() : null,
             venta.getCliente() != null ? venta.getCliente().getNombre() : null
         );
     }

@@ -27,6 +27,10 @@ public class Usuario {
     @Column(name = "s_nombre", length = 150)
     private String nombre;
 
+    // Nuevo campo para el envío de correos a los cajeros y administradores
+    @Column(name = "s_email", unique = true, length = 100)
+    private String email;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "s_rol", length = 50)
     private RolUsuario rol;
@@ -36,9 +40,6 @@ public class Usuario {
 
     @Embedded
     private Auditable auditable = new Auditable();
-
-    @Column(name = "n_telegram_chat_id")
-    private Long telegramChatId;
 
     @Column(name = "s_password_temporal", length = 150)
     private String passwordTemporal;

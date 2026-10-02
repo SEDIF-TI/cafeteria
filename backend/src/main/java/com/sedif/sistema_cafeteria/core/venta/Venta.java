@@ -1,6 +1,7 @@
 package com.sedif.sistema_cafeteria.core.venta;
 
-import com.sedif.sistema_cafeteria.core.usuarios.Usuario; // Ajusta el paquete según tu entidad de usuarios
+import com.sedif.sistema_cafeteria.core.cliente.Cliente;
+import com.sedif.sistema_cafeteria.core.usuarios.Usuario; 
 import com.sedif.sistema_cafeteria.util.Auditable;
 import jakarta.persistence.*;
 import lombok.*;
@@ -21,17 +22,23 @@ public class Venta {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "pn_id")
+    private Long PnId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
-    private Usuario usuario; // Usuario que registró la venta
+    private Usuario usuario; // Usuario que registró la venta (Cajero)
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal total;
 
     @OneToMany(mappedBy = "venta", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DetalleVenta> detalles;
+
+    // Relación correcta usando la nueva entidad Cliente
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id", nullable = true) 
+    private Cliente cliente;
 
     @Embedded
     @Builder.Default
@@ -40,9 +47,4 @@ public class Venta {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private EstadoVenta estado;
-
-    // Relación opcional con el cliente (Deudor). Ajusta 'Usuario' por 'Cliente' si tienes una entidad separada para ellos.
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cliente_id")
-    private Usuario cliente;
 }

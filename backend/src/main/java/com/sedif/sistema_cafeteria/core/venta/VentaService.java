@@ -4,15 +4,17 @@ import com.sedif.sistema_cafeteria.core.caja.MovimientoCaja;
 import com.sedif.sistema_cafeteria.core.caja.MovimientoCajaRepository;
 import com.sedif.sistema_cafeteria.core.caja.Turno;
 import com.sedif.sistema_cafeteria.core.caja.TurnoRepository;
+import com.sedif.sistema_cafeteria.core.cliente.Cliente;
+import com.sedif.sistema_cafeteria.core.cliente.ClienteRepository;
 import com.sedif.sistema_cafeteria.core.inventario.Inventario;
 import com.sedif.sistema_cafeteria.core.inventario.InventarioRepository;
+import com.sedif.sistema_cafeteria.core.notificaciones.EmailService;
 import com.sedif.sistema_cafeteria.core.producto.Producto;
 import com.sedif.sistema_cafeteria.core.producto.ProductoInsumo;
 import com.sedif.sistema_cafeteria.core.producto.ProductoInsumoRepository;
 import com.sedif.sistema_cafeteria.core.producto.ProductoRepository;
 import com.sedif.sistema_cafeteria.core.usuarios.Usuario;
 import com.sedif.sistema_cafeteria.core.usuarios.UsuarioRepository;
-import com.sedif.sistema_cafeteria.core.telegram.SedifTelegramBot;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,27 +34,25 @@ public class VentaService {
     private final InventarioRepository inventarioRepository;
     private final ProductoInsumoRepository productoInsumoRepository;
     private final UsuarioRepository usuarioRepository;
-    private final SedifTelegramBot sedifTelegramBot;
-    
-    // Inyecciones nuevas para conectar con el módulo de caja
     private final TurnoRepository turnoRepository;
     private final MovimientoCajaRepository movimientoCajaRepository;
+    
+    private final ClienteRepository clienteRepository; 
+    private final EmailService emailService;
 
     @Transactional
     public VentaResponseRecord registrarVenta(VentaRequestRecord request) {
         
-        // 1. Buscar cajero
         Usuario usuario = usuarioRepository.findById(request.usuarioId())
                 .orElseThrow(() -> new EntityNotFoundException("Usuario (Cajero) no encontrado con id: " + request.usuarioId()));
 
-        // 2. Buscar cliente (solo si la petición lo incluye)
-        Usuario cliente = null;
+        Cliente cliente = null;
         if (request.clienteId() != null) {
-            cliente = usuarioRepository.findById(request.clienteId())
+            cliente = clienteRepository.findById(request.clienteId())
                     .orElseThrow(() -> new EntityNotFoundException("Cliente no encontrado con id: " + request.clienteId()));
         }
 
-        // 3. Inicializar la venta mapeando el estado y el cliente
+        // 1. Crear e insertar primero la venta con total en cero para obtener el ID generado por la BD
         Venta venta = Venta.builder()
                 .usuario(usuario)
                 .cliente(cliente)
@@ -60,6 +60,9 @@ public class VentaService {
                 .total(BigDecimal.ZERO)
                 .detalles(new ArrayList<>())
                 .build();
+
+        // FORZAR LA INSERCIÓN INMEDIATA en PostgreSQL usando saveAndFlush()
+        Venta ventaGuardada = ventaRepository.saveAndFlush(venta);
 
         BigDecimal totalVenta = BigDecimal.ZERO;
 
@@ -71,60 +74,58 @@ public class VentaService {
             BigDecimal subtotal = producto.getPrecio().multiply(cantidadItem);
             totalVenta = totalVenta.add(subtotal);
 
-            // 4. Lógica de Descuento de Inventario
             if (Boolean.TRUE.equals(producto.getEsDirecto())) {
                 Inventario inventario = producto.getInventario();
-                
                 if (inventario.getStockActual().compareTo(cantidadItem) < 0) {
                     throw new IllegalArgumentException("Stock insuficiente para el producto directo: " + producto.getNombre());
                 }
-                
                 inventario.setStockActual(inventario.getStockActual().subtract(cantidadItem));
                 inventarioRepository.save(inventario);
             } else {
                 List<ProductoInsumo> receta = productoInsumoRepository.findByProductoId(producto.getId());
                 for (ProductoInsumo recetaItem : receta) {
                     Inventario insumo = recetaItem.getInsumo();
-                    
                     BigDecimal cantidadReqInsumo = BigDecimal.valueOf(recetaItem.getCantidadRequerida());
                     BigDecimal cantidadRequeridaTotal = cantidadReqInsumo.multiply(cantidadItem);
 
                     if (insumo.getStockActual().compareTo(cantidadRequeridaTotal) < 0) {
                         throw new IllegalArgumentException("Stock insuficiente en insumo de receta: " + insumo.getNombre());
                     }
-                    
                     insumo.setStockActual(insumo.getStockActual().subtract(cantidadRequeridaTotal));
                     inventarioRepository.save(insumo);
                 }
             }
 
+            // 2. Construir el detalle utilizando la venta ya guardada (con su ID oficial)
             DetalleVenta detalle = DetalleVenta.builder()
-                    .venta(venta)
+                    .venta(ventaGuardada)
                     .producto(producto)
                     .cantidad(itemReq.cantidad())
                     .precioUnitario(producto.getPrecio())
                     .subtotal(subtotal)
                     .build();
 
-            venta.getDetalles().add(detalle);
+             // Agregar a la colección rastreada por Hibernate directamente
+            ventaGuardada.getDetalles().add(detalle);
         }
 
-        venta.setTotal(totalVenta);
-        Venta ventaGuardada = ventaRepository.save(venta);
+        // 3. Asignar los detalles y actualizar el total definitivo
+        ventaGuardada.setTotal(totalVenta);
+        ventaRepository.save(ventaGuardada);
 
-        if (ventaGuardada.getCliente() != null && ventaGuardada.getCliente().getTelegramChatId() != null) {
+        if (ventaGuardada.getCliente() != null && ventaGuardada.getCliente().getCorreoElectronico() != null && !ventaGuardada.getCliente().getCorreoElectronico().isEmpty()) {
             String tipoTicket = ventaGuardada.getEstado() == EstadoVenta.PAGADA ? "Recibo de Compra" : "Cargo Pendiente (Deuda)";
+            String asunto = tipoTicket + " - Cafetería";
             String mensajeTicket = String.format(
-                    "☕ *%s - Cafetería*\n\nHola *%s*.\nEl total de tu orden es: *$%s*.\n\n¡Gracias por tu preferencia!",
-                    tipoTicket,
+                    "Hola %s.\nEl total de tu orden es: $%s.\n\n¡Gracias por tu preferencia!",
                     ventaGuardada.getCliente().getNombre(),
                     ventaGuardada.getTotal()
             );
             
             try {
-                sedifTelegramBot.enviarMensaje(ventaGuardada.getCliente().getTelegramChatId(), mensajeTicket);
+                emailService.enviarCorreo(ventaGuardada.getCliente().getCorreoElectronico(), asunto, mensajeTicket);
             } catch (Exception e) {
-                System.err.println("No se pudo enviar el ticket por Telegram: " + e.getMessage());
+                System.err.println("No se pudo enviar el ticket por correo: " + e.getMessage());
             }
         }
 
@@ -147,13 +148,13 @@ public class VentaService {
 
     @Transactional(readOnly = true)
     public List<VentaResponseRecord> obtenerDeudasPorCliente(Long clienteId) {
-        return ventaRepository.findByClienteIdAndEstado(clienteId, EstadoVenta.PENDIENTE)
+        // CORRECCIÓN APLICADA: findByClientePnIdAndEstado
+        return ventaRepository.findByClientePnIdAndEstado(clienteId, EstadoVenta.PENDIENTE)
                 .stream()
                 .map(VentaResponseRecord::new)
                 .toList();
     }
 
-    // Método refactorizado: Ahora exige montoIngresado y procesa la caja, retornando el Record correcto
     @Transactional
     public VentaResponseRecord liquidarDeuda(Long ventaId, BigDecimal montoIngresado) {
         Venta venta = ventaRepository.findById(ventaId)
@@ -163,7 +164,6 @@ public class VentaService {
             throw new IllegalStateException("Esta cuenta ya se encuentra liquidada.");
         }
 
-        // 1. Reglas anti-saldos negativos
         if (montoIngresado.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El monto a cobrar debe ser mayor a cero.");
         }
@@ -175,38 +175,37 @@ public class VentaService {
             );
         }
 
-        // 2. Cambiamos el estado a PAGADA[cite: 6]. 
         venta.setEstado(EstadoVenta.PAGADA);
         Venta ventaActualizada = ventaRepository.save(venta);
 
-        // 3. Generar el Movimiento de Caja en el turno actual
         Turno turnoActivo = turnoRepository.findByEstaActivoTrue()
                 .orElseThrow(() -> new IllegalStateException("Debes abrir un turno en caja antes de realizar cobros."));
 
+        // CORRECCIÓN APLICADA: ventaActualizada.getPnId()
         MovimientoCaja ingresoDeuda = MovimientoCaja.builder()
                 .turno(turnoActivo)
                 .fechaHora(LocalDateTime.now())
                 .tipo("INGRESO_DEUDA")
                 .monto(montoIngresado)
-                .descripcion("Liquidación de deuda - Ticket #" + ventaActualizada.getId())
-                .ventaOrigenId(ventaActualizada.getId())
+                .descripcion("Liquidación de deuda - Ticket #" + ventaActualizada.getPnId())
+                .ventaOrigenId(ventaActualizada.getPnId())
                 .build();
         
         movimientoCajaRepository.save(ingresoDeuda);
         turnoActivo.setTotalIngresos(turnoActivo.getTotalIngresos().add(montoIngresado));
 
-        // 4. Enviar notificación de confirmación de pago por Telegram[cite: 6]
-        if (ventaActualizada.getCliente() != null && ventaActualizada.getCliente().getTelegramChatId() != null) {
+        if (ventaActualizada.getCliente() != null && ventaActualizada.getCliente().getCorreoElectronico() != null && !ventaActualizada.getCliente().getCorreoElectronico().isEmpty()) {
+            String asunto = "Pago Recibido - Cafetería";
             String mensajePago = String.format(
-                    "✅ *Pago Recibido - Cafetería*\n\nHola *%s*.\nHemos registrado la liquidación de tu ticket por *$%s*.\n\n¡Tu cuenta está al corriente, gracias!",
+                    "Hola %s.\nHemos registrado la liquidación de tu ticket por $%s.\n\n¡Tu cuenta está al corriente, gracias!",
                     ventaActualizada.getCliente().getNombre(),
                     ventaActualizada.getTotal()
             );
             
             try {
-                sedifTelegramBot.enviarMensaje(ventaActualizada.getCliente().getTelegramChatId(), mensajePago);
+                emailService.enviarCorreo(ventaActualizada.getCliente().getCorreoElectronico(), asunto, mensajePago);
             } catch (Exception e) {
-                System.err.println("No se pudo enviar el recibo de liquidación por Telegram: " + e.getMessage());
+                System.err.println("No se pudo enviar el recibo por correo: " + e.getMessage());
             }
         }
 
@@ -222,17 +221,16 @@ public class VentaService {
         }
 
         BigDecimal totalAdeudado = BigDecimal.ZERO;
-        Usuario cliente = tickets.get(0).getCliente(); // Tomamos el cliente del primer ticket
+        Cliente cliente = tickets.get(0).getCliente(); 
 
-        // 1. Validar estado y sumar el total real de los tickets
         for (Venta ticket : tickets) {
             if (ticket.getEstado() != EstadoVenta.PENDIENTE) {
-                throw new IllegalStateException("El ticket #" + ticket.getId() + " ya se encuentra liquidado.");
+                // CORRECCIÓN APLICADA: ticket.getPnId()
+                throw new IllegalStateException("El ticket #" + ticket.getPnId() + " ya se encuentra liquidado.");
             }
             totalAdeudado = totalAdeudado.add(ticket.getTotal());
         }
 
-        // 2. Regla anti-saldos negativos (Cobro exacto)
         if (montoIngresado.compareTo(totalAdeudado) != 0) {
             throw new IllegalArgumentException(
                 String.format("Monto inválido. Los tickets suman exactamente $%s, pero se intentó ingresar $%s.", 
@@ -240,11 +238,9 @@ public class VentaService {
             );
         }
 
-        // 3. Marcar todos como PAGADOS
         tickets.forEach(ticket -> ticket.setEstado(EstadoVenta.PAGADA));
         List<Venta> ventasActualizadas = ventaRepository.saveAll(tickets);
 
-        // 4. Registrar un único ingreso en la caja del turno actual
         Turno turnoActivo = turnoRepository.findByEstaActivoTrue()
                 .orElseThrow(() -> new IllegalStateException("Debes abrir un turno en caja antes de realizar cobros."));
 
@@ -259,19 +255,19 @@ public class VentaService {
         movimientoCajaRepository.save(ingresoMasivo);
         turnoActivo.setTotalIngresos(turnoActivo.getTotalIngresos().add(montoIngresado));
 
-        // 5. Enviar confirmación consolidada por Telegram
-        if (cliente != null && cliente.getTelegramChatId() != null) {
+        if (cliente != null && cliente.getCorreoElectronico() != null && !cliente.getCorreoElectronico().isEmpty()) {
+            String asunto = "Pago Masivo Recibido - Cafetería";
             String mensajePago = String.format(
-                    "✅ *Pago Masivo Recibido - Cafetería*\n\nHola *%s*.\nHemos registrado la liquidación de %d tickets por un total de *$%s*.\n\n¡Tu cuenta está al corriente, gracias!",
+                    "Hola %s.\nHemos registrado la liquidación de %d tickets por un total de $%s.\n\n¡Tu cuenta está al corriente, gracias!",
                     cliente.getNombre(),
                     tickets.size(),
                     montoIngresado
             );
             
             try {
-                sedifTelegramBot.enviarMensaje(cliente.getTelegramChatId(), mensajePago);
+                emailService.enviarCorreo(cliente.getCorreoElectronico(), asunto, mensajePago);
             } catch (Exception e) {
-                System.err.println("No se pudo enviar el recibo masivo por Telegram: " + e.getMessage());
+                System.err.println("No se pudo enviar el recibo masivo por correo: " + e.getMessage());
             }
         }
 

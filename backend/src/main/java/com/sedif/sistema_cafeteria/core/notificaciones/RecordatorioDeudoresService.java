@@ -1,9 +1,10 @@
-package com.sedif.sistema_cafeteria.core.telegram;
+package com.sedif.sistema_cafeteria.core.notificaciones;
 
 import com.sedif.sistema_cafeteria.core.venta.Venta;
 import com.sedif.sistema_cafeteria.core.venta.VentaRepository;
 import com.sedif.sistema_cafeteria.core.venta.EstadoVenta;
-import com.sedif.sistema_cafeteria.core.usuarios.Usuario;
+import com.sedif.sistema_cafeteria.core.cliente.Cliente;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -19,11 +20,8 @@ import java.util.stream.Collectors;
 public class RecordatorioDeudoresService {
 
     private final VentaRepository ventaRepository;
-    private final SedifTelegramBot telegramBot; // Tu clase existente que maneja el envío
+    private final EmailService emailService;
 
-    // Ejecución de prueba cada 60 segundos. 
-    // @Scheduled(fixedRate = 60000)
-    // Para producción cambiar a: @Scheduled(cron = "0 0 10 15,L * ?")
     @Scheduled(cron = "0 0 10 15,L * ?")
     @Transactional(readOnly = true)
     public void notificarCuentasPendientes() {
@@ -33,15 +31,15 @@ public class RecordatorioDeudoresService {
                 .filter(v -> v.getEstado() == EstadoVenta.PENDIENTE && v.getCliente() != null)
                 .toList();
 
-        // 2. Agruparlas por cliente para no enviar spam (un mensaje por persona)
-        Map<Usuario, List<Venta>> deudasPorCliente = deudas.stream()
+        // 2. Agruparlas por cliente para no enviar spam
+        Map<Cliente, List<Venta>> deudasPorCliente = deudas.stream()
                 .collect(Collectors.groupingBy(Venta::getCliente));
 
         // 3. Procesar y enviar
         deudasPorCliente.forEach((cliente, tickets) -> {
             
-            // Validar que el cliente tenga su Telegram vinculado
-            if (cliente.getTelegramChatId() != null) {
+            // CORRECCIÓN: Se usa getCorreoElectronico() en lugar de getEmail()
+            if (cliente.getCorreoElectronico() != null && !cliente.getCorreoElectronico().isEmpty()) {
                 
                 BigDecimal totalAdeudo = tickets.stream()
                         .map(Venta::getTotal)
@@ -56,7 +54,8 @@ public class RecordatorioDeudoresService {
                 );
 
                 try {
-                    telegramBot.enviarMensaje(cliente.getTelegramChatId(), mensaje);
+                    // CORRECCIÓN: Se usa enviarCorreo() y getCorreoElectronico()
+                    emailService.enviarCorreo(cliente.getCorreoElectronico(), "Recordatorio de Deuda", mensaje);
                 } catch (Exception e) {
                     System.err.println("Fallo al enviar a " + cliente.getNombre() + ": " + e.getMessage());
                 }

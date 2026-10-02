@@ -1,11 +1,11 @@
 package com.sedif.sistema_cafeteria.security.auth;
 
-import com.sedif.sistema_cafeteria.core.telegram.SedifTelegramBot;
 import com.sedif.sistema_cafeteria.core.usuarios.Usuario;
 import com.sedif.sistema_cafeteria.core.usuarios.UsuarioRepository;
 import com.sedif.sistema_cafeteria.core.usuarios.VistaDTO;
 import com.sedif.sistema_cafeteria.exception.MessageConstants;
 import com.sedif.sistema_cafeteria.security.JwtTokenProvider;
+import com.sedif.sistema_cafeteria.core.notificaciones.EmailService; // Importación actualizada
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,7 +21,7 @@ public class AuthService {
     private final UsuarioRepository usuarioRepository;
     private final JwtTokenProvider tokenProvider;
     private final PasswordEncoder passwordEncoder;
-    private final SedifTelegramBot sedifTelegramBot; // Dependencia del bot inyectada
+    private final EmailService emailService; // Dependencia de correo inyectada
 
     @Transactional 
     public JwtResponse iniciarSesion(LoginRequest request) {
@@ -30,31 +30,25 @@ public class AuthService {
                 .buscarUsuario(request.identificador())
                 .orElseThrow(() -> new IllegalArgumentException(MessageConstants.CREDENCIALES_INVALIDAS));
 
-        // 1. Verificamos si el usuario tiene una recuperación activa
         boolean enRecuperacion = usuario.getPasswordTemporal() != null;
         boolean credencialesValidas;
         boolean requiereCambio = false;
 
         if (enRecuperacion) {
-            // Si hay clave temporal, la principal queda bloqueada. SOLO aceptamos la temporal.
             credencialesValidas = passwordEncoder.matches(request.password(), usuario.getPasswordTemporal());
             requiereCambio = true;
         } else {
-            // Flujo normal: solo evaluamos la contraseña principal
             credencialesValidas = passwordEncoder.matches(request.password(), usuario.getPassword());
         }
 
-        // 2. Si falló la validación correspondiente, rechazamos el acceso
         if (!credencialesValidas) {
             throw new IllegalArgumentException(MessageConstants.CREDENCIALES_INVALIDAS);
         }
 
-        // 3. Validar que la cuenta siga activa
         if (!Boolean.TRUE.equals(usuario.isActivo())) {
             throw new IllegalArgumentException(MessageConstants.USUARIO_INACTIVO);
         }
 
-        // 4. Si entró exitosamente usando la temporal, la destruimos para que sea de un solo uso
         if (enRecuperacion) {
             usuario.setPasswordTemporal(null);
             usuarioRepository.save(usuario);
@@ -70,8 +64,8 @@ public class AuthService {
                 token,
                 "Autenticación exitosa.",
                 vistasPermitidas,
-                null,           // <-- Esto cubre tu areaId
-                requiereCambio  // <-- Esta es la alerta para el frontend
+                null,           
+                requiereCambio  
         );
     }
 
@@ -80,8 +74,9 @@ public class AuthService {
         Usuario usuario = usuarioRepository.buscarUsuario(identificador)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
-        if (usuario.getTelegramChatId() == null) {
-            throw new IllegalStateException("El usuario no tiene una cuenta de Telegram vinculada. Contacte al administrador.");
+        // Validamos el correo del cajero/admin en lugar del chat de Telegram
+        if (usuario.getEmail() == null || usuario.getEmail().isEmpty()) {
+            throw new IllegalStateException("El usuario no tiene un correo electrónico registrado. Contacte al administrador.");
         }
 
         String passwordPlana = UUID.randomUUID().toString().substring(0, 8);
@@ -89,15 +84,17 @@ public class AuthService {
         usuario.setPasswordTemporal(passwordEncoder.encode(passwordPlana));
         usuarioRepository.save(usuario);
 
-        String mensaje = "Hola *" + usuario.getNombre() + "*.\n\n" +
+        // Mensaje limpio sin los asteriscos de Markdown de Telegram
+        String asunto = "Recuperación de Contraseña - Cafetería";
+        String mensaje = "Hola " + usuario.getNombre() + ".\n\n" +
                          "Se ha solicitado un restablecimiento de acceso para tu cuenta.\n" +
-                         "Tu contraseña temporal es: *" + passwordPlana + "*\n\n" +
-                         "Por favor, inicia sesión con esta clave y actualízala en el sistema.";
+                         "Tu contraseña temporal es: " + passwordPlana + "\n\n" +
+                         "Por favor, inicia sesión con esta clave y actualízala inmediatamente en el sistema.";
 
         try {
-            sedifTelegramBot.enviarMensaje(usuario.getTelegramChatId(), mensaje);
+            emailService.enviarCorreo(usuario.getEmail(), asunto, mensaje);
         } catch (Exception e) {
-            throw new RuntimeException("Error al enviar el mensaje de Telegram. Intente más tarde.", e);
+            throw new RuntimeException("Error al enviar el correo de recuperación. Intente más tarde.", e);
         }
     }
 
