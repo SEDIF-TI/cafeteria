@@ -19,20 +19,20 @@ public class UsuarioResource {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR')")
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR', 'ROLE_ADMIN', 'ADMIN', 'ROLE_SUPER_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<List<UsuarioResponse>> listarTodos() {
         return ResponseEntity.ok(usuarioService.listarTodos());
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR')")
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR', 'ROLE_ADMIN', 'ADMIN', 'ROLE_SUPER_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<UsuarioResponse> crear(@Valid @RequestBody UsuarioRequest request) {
         UsuarioResponse response = usuarioService.crear(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PutMapping("/{id}/estado")
-    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR')")
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR', 'ROLE_ADMIN', 'ADMIN', 'ROLE_SUPER_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<UsuarioResponse> cambiarEstado(
             @PathVariable Long id,
             @RequestBody boolean activo) {
@@ -41,7 +41,7 @@ public class UsuarioResource {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR')")
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR', 'ROLE_ADMIN', 'ADMIN', 'ROLE_SUPER_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<UsuarioResponse> actualizar(
             @PathVariable Long id,
             @Valid @RequestBody UsuarioRequest request) {
