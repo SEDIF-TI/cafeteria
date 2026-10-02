@@ -1,5 +1,6 @@
 package com.sedif.sistema_cafeteria.core.producto;
 
+import com.sedif.sistema_cafeteria.core.inventario.UnidadMedida;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -28,6 +29,8 @@ public record ProductoRequestRecord(
         BigDecimal stock, // Obligatorio si es directo
 
         BigDecimal stockMinimo, // Obligatorio si es directo
+
+        UnidadMedida unidadMedida, // Obligatorio si es directo
 
         @NotNull(message = "La categoría es obligatoria")
         Long categoriaId
