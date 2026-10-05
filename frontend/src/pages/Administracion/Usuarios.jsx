@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -19,11 +19,11 @@ import {
   TextField,
   MenuItem,
   Chip,
-  Stack
+  Stack,
+  IconButton
 } from '@mui/material';
-import api from '../../api/axiosClient'; // Ajusta la ruta si es necesario
+import api from '../../api/axiosClient';
 
-import IconButton from '@mui/material/IconButton';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -124,7 +124,6 @@ export default function Usuarios() {
     }
   };
 
-  // Función para cambiar el estado del usuario
   const handleToggleEstado = async (usuario) => {
     try {
       const nuevoEstado = !usuario.activo;
@@ -155,22 +154,19 @@ export default function Usuarios() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      {/* Encabezado: Título a la izquierda, Botón a la derecha */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+        <Typography variant="h4" sx={{ fontWeight: 600, color: '#1e293b' }}>
+          Gestión de Usuarios
+        </Typography>
         <Button 
           variant="contained" 
-          color="primary"
-          align="left"
           onClick={handleOpenCreate}
-          sx={{ py: 1, px: 3, fontWeight: 'bold' }} 
+          sx={{ py: 1, px: 3, fontWeight: 'bold', backgroundColor: '#691c32', '&:hover': { backgroundColor: '#501525' } }} 
         >
           Nuevo Usuario
         </Button>
       </Box>
 
-      <br />
-
-      {/* Tabla */}
       <TableContainer component={Paper} elevation={3}>
         <Table>
           <TableHead sx={{ backgroundColor: '#f5f5f5' }}>
@@ -198,7 +194,6 @@ export default function Usuarios() {
                   />
                 </TableCell>
                 <TableCell align="center">
-                  {/* Contenedor Stack para alinear y centrar perfectamente los iconos */}
                   <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
                     <IconButton 
                       color="primary"
@@ -268,13 +263,13 @@ export default function Usuarios() {
           <Button onClick={() => setOpenDialog(false)} color="inherit" sx={{ fontWeight: 'bold' }}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary" sx={{ fontWeight: 'bold' }}>
+          <Button onClick={handleSubmit} variant="contained" sx={{ fontWeight: 'bold', backgroundColor: '#691c32' }}>
             Guardar
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Modal General para Confirmaciones y Errores */}
+      {/* Modal Alerta General */}
       <Dialog 
         open={modalMensaje.open} 
         onClose={() => setModalMensaje({ ...modalMensaje, open: false })}
@@ -301,7 +296,7 @@ export default function Usuarios() {
         </DialogActions>
       </Dialog>
 
-      {/* Modal específico para la contraseña temporal en la creación */}
+      {/* Modal Contraseña Temporal */}
       {passwordCreada && (
         <Dialog open={true} onClose={() => setPasswordCreada(null)}>
           <DialogTitle sx={{ color: 'success.main', fontWeight: 'bold' }}>
@@ -314,7 +309,7 @@ export default function Usuarios() {
               <Typography variant="h6" component="span" sx={{ display: 'block', my: 2, textAlign: 'center', p: 1, backgroundColor: '#f0f0f0', borderRadius: 1, letterSpacing: 2 }}>
                 {passwordCreada.password}
               </Typography>
-              <i>Asegúrese de copiarla y compartirla con el usuario, ya que no se volverá a mostrar por motivos de seguridad.</i>
+              <i>Asegúrese de copiarla y compartirla con el usuario.</i>
             </DialogContentText>
           </DialogContent>
           <DialogActions>

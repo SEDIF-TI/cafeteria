@@ -7,8 +7,8 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import LogoutIcon from '@mui/icons-material/Logout';
 import axios from 'axios';
 
-const currentHost = window.location.hostname;
-const API_URL = import.meta.env.VITE_API_URL || `http://${currentHost}:8080`;
+const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+const API_URL = import.meta.env?.VITE_API_URL || `http://${currentHost}:8080`;
 
 export default function ConsultaTickets() {
   const [tickets, setTickets] = useState([]);

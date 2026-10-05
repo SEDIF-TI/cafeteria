@@ -39,7 +39,7 @@ export default function Categorias() {
   }, []);
 
   const handleCrearCategoria = async (e) => {
-    e.preventDefault(); // Evita que la página se recargue
+    e.preventDefault();
 
     try {
       const payload = {
@@ -49,11 +49,10 @@ export default function Categorias() {
 
       await api.post('/categorias', payload);
 
-      // Limpieza y cierre de modal
       setNombre('');
       setDescripcion('');
       setOpenAddModal(false);
-      fetchCategorias(); // Recargar la lista
+      fetchCategorias();
     } catch (error) {
       console.error('Error al crear categoría:', error.response?.data || error.message);
     }
@@ -67,7 +66,6 @@ export default function Categorias() {
   const handleToggleEstado = async () => {
     if (!categoriaSeleccionada) return;
     try {
-      // Se quitó el prefijo duplicado /api/v1
       await api.patch(`/categorias/${categoriaSeleccionada.id}/estado`);
       setOpenConfirmDialog(false);
       setCategoriaSeleccionada(null);
@@ -188,7 +186,7 @@ export default function Categorias() {
         </form>
       </Dialog>
 
-      {/* Diálogo de Alerta para Confirmar Cambio de Estado / Borrado Lógico */}
+      {/* Diálogo de Confirmación */}
       <Dialog open={openConfirmDialog} onClose={() => setOpenConfirmDialog(false)}>
         <DialogTitle sx={{ fontWeight: 600, color: '#1e2932' }}>
           {categoriaSeleccionada?.activo ? '¿Desactivar categoría?' : '¿Activar categoría?'}
