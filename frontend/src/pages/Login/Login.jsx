@@ -13,6 +13,7 @@ import {
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { AuthContext } from '../../context/AuthContext'; // Asegúrate de que la ruta a tu AuthContext sea correcta
+import api from '../../api/axiosClient';
 
 import logoPuebla from '../../assets/logo-puebla.png';
 
@@ -36,13 +37,23 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // Usamos la función del contexto, que ya apunta a /api/v1/auth/login y guarda el 'user'
+      // 1) Se intenta como personal del sistema (tabla usuario).
       await login(identificador, password);
-      
-      // Si el login es exitoso, redirigimos
       navigate('/dashboard');
-    } catch (err) {
-      setError('Credenciales incorrectas o el usuario está inactivo.');
+    } catch (errStaff) {
+      // 2) Si no es personal, se intenta como cliente (tabla cliente, con su propio token).
+      try {
+        const res = await api.post('/clientes/login', {
+          numeroControlEmpleado: identificador,
+          password
+        });
+        localStorage.removeItem('user'); // por si quedó una sesión de personal
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('clienteSesion', JSON.stringify(res.data));
+        navigate(res.data.debeCambiarPassword ? '/cliente/cambiar-password' : '/cliente/mi-apartado');
+      } catch (errCliente) {
+        setError('Credenciales incorrectas o la cuenta está inactiva.');
+      }
     } finally {
       setIsLoading(false);
     }
