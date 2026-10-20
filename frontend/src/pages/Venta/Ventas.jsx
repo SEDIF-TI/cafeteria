@@ -42,18 +42,22 @@ export default function Ventas() {
     setCantidadesCubiertos({});
   };
 
+  const [hayTurno, setHayTurno] = useState(true);
+
   const cargarCatalogos = async () => {
     try {
-      const [resProd, resClientes, resUtensilios] = await Promise.all([
+      const [resProd, resClientes, resUtensilios, resTurno] = await Promise.all([
         api.get('/productos'),
         api.get('/clientes'),
-        api.get('/utensilios/activos').catch(() => ({ data: [] }))
+        api.get('/utensilios/activos').catch(() => ({ data: [] })),
+        api.get('/turnos/activo').catch(() => ({ data: null }))
       ]);
 
       const productosVenta = (resProd.data || []).filter((p) => Number(p.precio) > 0);
       setProductos(productosVenta);
       setClientes(resClientes.data || []);
       setUtensilios(resUtensilios.data || []);
+      setHayTurno(!!resTurno.data);
     } catch (error) {
       console.error('Error al cargar catálogos:', error);
     }
@@ -315,19 +319,20 @@ export default function Ventas() {
       {/* ================= COLUMNA DERECHA: TICKET DE VENTA ================= */}
       <Box sx={{ 
         width: { xs: '100%', md: '450px', lg: '500px', xl: '35%' }, 
-        flexShrink: 0, 
-        position: { md: 'sticky' }, 
-        top: 24 
+        flexShrink: 0,
+        position: { md: 'sticky' },
+        top: 88,
+        alignSelf: { md: 'stretch' }
       }}>
         <Paper 
           elevation={4} 
           sx={{ 
-            width: '100%', 
-            borderRadius: 4, 
+            width: '100%',
+            borderRadius: 4,
             display: 'flex',
             flexDirection: 'column',
-            height: 'calc(100vh - 48px)',
-            maxHeight: '900px',
+            height: { xs: 'auto', md: 'calc(100vh - 112px)' },
+            maxHeight: { xs: 'none', md: 'calc(100vh - 112px)' },
             overflow: 'hidden',
             bgcolor: '#ffffff',
             border: '1px solid #e9ecef'
@@ -376,7 +381,7 @@ export default function Ventas() {
               </Typography>
             </Box>
           ) : (
-            <Box display="flex" flexDirection="column" flex={1} overflow="hidden">
+            <Box display="flex" flexDirection="column" flex={1} overflow="hidden" sx={{ minHeight: 0 }}>
               <Stack 
                 direction="row" 
                 alignItems="center" 
@@ -388,7 +393,7 @@ export default function Ventas() {
                 <Box sx={{ width: '40px' }}></Box>
               </Stack>
 
-              <Box flex={1} overflow="auto" sx={{ '&::-webkit-scrollbar': { width: '8px' }, '&::-webkit-scrollbar-thumb': { bgcolor: '#ced4da', borderRadius: '4px' } }}>
+              <Box flex={1} overflow="auto" sx={{ minHeight: 0, '&::-webkit-scrollbar': { width: '8px' }, '&::-webkit-scrollbar-thumb': { bgcolor: '#ced4da', borderRadius: '4px' } }}>
                 {carrito.map((item) => (
                   <Stack 
                     key={item.productoId} 
@@ -558,6 +563,12 @@ export default function Ventas() {
               <MenuItem value="TRANSFERENCIA" sx={{ fontSize: '1.1rem', py: 1.5 }}>Transferencia</MenuItem>
               <MenuItem value="DEUDA" sx={{ fontSize: '1.1rem', py: 1.5 }}>Crédito / Fiado (Deuda)</MenuItem>
             </TextField>
+
+            {metodoPago === 'EFECTIVO' && !hayTurno && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                No hay un turno de caja abierto. Abre uno en <b>Caja</b> para cobrar en efectivo.
+              </Alert>
+            )}
 
             {metodoPago === 'EFECTIVO' && (
               <Box sx={{ mt: 3 }}>
