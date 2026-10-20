@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
   Container, Typography, Box, Card, CardContent, Chip, Divider, Button, Avatar,
-  CircularProgress, Alert, Stack, Collapse, IconButton, Paper
+  CircularProgress, Alert, Stack, Collapse, Paper, AppBar, Toolbar, IconButton,
+  Menu, MenuItem, ListItemIcon, ListItemText, Grid
 } from '@mui/material';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -16,55 +17,42 @@ import api from '../../api/axiosClient';
 
 const MARCA = '#691c32';
 const dinero = (v) => `$${Number(v || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-const fecha = (f) => (f ? new Date(f).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
+const fecha = (f) => (f ? new Date(f).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 
 function TicketCard({ ticket, destacarDeuda }) {
   const [abierto, setAbierto] = useState(false);
   const pendiente = Number(ticket.saldoPendiente) > 0;
   return (
-    <Card
-      elevation={0}
-      sx={{
-        mb: 1.5, borderRadius: 3, border: '1px solid',
-        borderColor: pendiente && destacarDeuda ? 'error.light' : '#ececef',
-        overflow: 'hidden'
-      }}
-    >
-      <CardContent sx={{ pb: 1.5, '&:last-child': { pb: 1.5 } }}>
+    <Card elevation={0} sx={{
+      mb: 1.5, borderRadius: 3, border: '1px solid',
+      borderColor: pendiente && destacarDeuda ? 'error.light' : '#ececef', overflow: 'hidden'
+    }}>
+      <CardContent sx={{ p: { xs: 1.75, sm: 2 }, '&:last-child': { pb: { xs: 1.75, sm: 2 } } }}>
         <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary" fontWeight="600">
-              Ticket #{ticket.id}
-            </Typography>
+          <Box minWidth={0}>
+            <Typography variant="subtitle2" color="text.secondary" fontWeight="600">Ticket #{ticket.id}</Typography>
             <Typography variant="caption" color="text.secondary">{fecha(ticket.fecha)}</Typography>
           </Box>
           <Chip size="small" label={ticket.estado === 'PAGADO' ? 'Pagado' : 'Pendiente'}
-            color={ticket.estado === 'PAGADO' ? 'success' : 'warning'}
-            sx={{ fontWeight: 'bold' }} />
+            color={ticket.estado === 'PAGADO' ? 'success' : 'warning'} sx={{ fontWeight: 'bold', flexShrink: 0 }} />
         </Box>
-
-        <Box display="flex" justifyContent="space-between" alignItems="flex-end" mt={1.5}>
-          <Box>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-end" mt={1.5} gap={1}>
+          <Box minWidth={0}>
             <Typography variant="h5" fontWeight="800">{dinero(ticket.total)}</Typography>
-            {pendiente && (
-              <Typography variant="body2" color="error" fontWeight="bold">
-                Debes {dinero(ticket.saldoPendiente)}
-              </Typography>
-            )}
+            {pendiente && <Typography variant="body2" color="error" fontWeight="bold">Debes {dinero(ticket.saldoPendiente)}</Typography>}
           </Box>
           <Button size="small" onClick={() => setAbierto(!abierto)}
             endIcon={<ExpandMoreIcon sx={{ transform: abierto ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />}
-            sx={{ color: MARCA, textTransform: 'none' }}>
-            {abierto ? 'Ocultar' : 'Ver detalle'}
+            sx={{ color: MARCA, textTransform: 'none', flexShrink: 0 }}>
+            {abierto ? 'Ocultar' : 'Detalle'}
           </Button>
         </Box>
-
         <Collapse in={abierto}>
           <Divider sx={{ my: 1.5 }} />
           {(ticket.detalles || []).map((d, i) => (
-            <Box key={i} display="flex" justifyContent="space-between" py={0.3}>
-              <Typography variant="body2" color="text.secondary">{d.cantidad}× {d.producto}</Typography>
-              <Typography variant="body2" fontWeight="600">{dinero(d.subtotal)}</Typography>
+            <Box key={i} display="flex" justifyContent="space-between" py={0.3} gap={1}>
+              <Typography variant="body2" color="text.secondary" noWrap>{d.cantidad}× {d.producto}</Typography>
+              <Typography variant="body2" fontWeight="600" flexShrink={0}>{dinero(d.subtotal)}</Typography>
             </Box>
           ))}
         </Collapse>
@@ -75,9 +63,11 @@ function TicketCard({ ticket, destacarDeuda }) {
 
 function Resumen({ icon, valor, etiqueta, color }) {
   return (
-    <Paper elevation={0} sx={{ flex: 1, p: 2, borderRadius: 3, border: '1px solid #ececef', textAlign: 'center' }}>
-      <Box sx={{ color, mb: 0.5 }}>{icon}</Box>
-      <Typography variant="h6" fontWeight="800" lineHeight={1.1}>{valor}</Typography>
+    <Paper elevation={0} sx={{
+      height: '100%', p: { xs: 1.25, sm: 2 }, borderRadius: 3, border: '1px solid #ececef', textAlign: 'center'
+    }}>
+      <Box sx={{ color, mb: 0.5, '& svg': { fontSize: { xs: 22, sm: 26 } } }}>{icon}</Box>
+      <Typography fontWeight="800" lineHeight={1.1} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>{valor}</Typography>
       <Typography variant="caption" color="text.secondary">{etiqueta}</Typography>
     </Paper>
   );
@@ -89,6 +79,7 @@ export default function MiApartado() {
   const [historial, setHistorial] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [menuAnchor, setMenuAnchor] = useState(null);
   const navigate = useNavigate();
 
   const salir = () => {
@@ -102,7 +93,6 @@ export default function MiApartado() {
     if (!sesion) { navigate('/login'); return; }
     if (sesion.debeCambiarPassword) { navigate('/cliente/cambiar-password'); return; }
     setCliente(sesion);
-
     const cargar = async () => {
       try {
         const [resDeudas, resHist] = await Promise.all([
@@ -127,59 +117,68 @@ export default function MiApartado() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f7', pb: 6 }}>
-      {/* Encabezado de marca */}
-      <Box sx={{
-        background: `linear-gradient(135deg, ${MARCA} 0%, #8a2342 100%)`,
-        color: '#fff', px: 2, pt: 4, pb: 7,
-        borderBottomLeftRadius: 28, borderBottomRightRadius: 28
-      }}>
-        <Container maxWidth="sm" disableGutters>
-          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-            <Box display="flex" gap={1.5} alignItems="center">
-              <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 52, height: 52, fontWeight: 800, fontSize: '1.4rem' }}>
-                {inicial}
-              </Avatar>
-              <Box>
-                <Typography variant="h6" fontWeight="800" lineHeight={1.1}>{cliente?.nombre}</Typography>
-                <Typography variant="body2" sx={{ opacity: 0.85 }}>
-                  {cliente?.area} · N° {cliente?.clienteId}
-                </Typography>
-              </Box>
-            </Box>
-            <IconButton onClick={salir} sx={{ color: '#fff' }} title="Salir">
-              <LogoutIcon />
-            </IconButton>
-          </Box>
-          <Typography variant="caption" sx={{ opacity: 0.8, display: 'block', mt: 2 }}>
-            SEDIF Cafetería · Portal del cliente
-          </Typography>
-        </Container>
-      </Box>
+      {/* ===== Barra superior a todo lo ancho ===== */}
+      <AppBar position="sticky" elevation={0} sx={{ background: `linear-gradient(135deg, ${MARCA} 0%, #8a2342 100%)` }}>
+        <Toolbar sx={{ px: { xs: 2, sm: 3 }, gap: 1 }}>
+          {/* Avatar con menú (cambiar contraseña y futuras opciones) */}
+          <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)} sx={{ p: 0.5 }} aria-label="menú de cuenta">
+            <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.22)', color: '#fff', fontWeight: 800 }}>{inicial}</Avatar>
+          </IconButton>
 
-      <Container maxWidth="sm" sx={{ mt: -4 }}>
+          {/* Información del usuario, distribuida a lo ancho */}
+          <Box sx={{ flexGrow: 1, minWidth: 0, ml: 0.5 }}>
+            <Typography fontWeight="800" lineHeight={1.15} noWrap sx={{ color: '#fff', fontSize: { xs: '1rem', sm: '1.15rem' } }}>
+              {cliente?.nombre || 'Cliente'}
+            </Typography>
+            <Typography variant="caption" noWrap sx={{ color: 'rgba(255,255,255,0.85)', display: 'block' }}>
+              {cliente?.area || 'SEDIF Cafetería'} · N° {cliente?.clienteId}
+            </Typography>
+          </Box>
+
+          {/* Cerrar sesión siempre visible en la barra */}
+          <Button onClick={salir} startIcon={<LogoutIcon />} sx={{
+            color: '#fff', textTransform: 'none', fontWeight: 'bold', flexShrink: 0,
+            '& .MuiButton-startIcon': { mr: { xs: 0, sm: 0.5 } }
+          }}>
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Salir</Box>
+          </Button>
+
+          <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
+            <MenuItem onClick={() => { setMenuAnchor(null); navigate('/cliente/cambiar-password'); }}>
+              <ListItemIcon><KeyIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Cambiar contraseña</ListItemText>
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={() => { setMenuAnchor(null); salir(); }}>
+              <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Cerrar sesión</ListItemText>
+            </MenuItem>
+          </Menu>
+        </Toolbar>
+      </AppBar>
+
+      {/* ===== Contenido ===== */}
+      <Container maxWidth="sm" sx={{ pt: 3, px: { xs: 2, sm: 3 } }}>
         {loading ? (
           <Box display="flex" justifyContent="center" my={6}><CircularProgress sx={{ color: MARCA }} /></Box>
         ) : error ? (
           <Alert severity="error">{error}</Alert>
         ) : (
           <>
-            {/* Resumen */}
-            <Stack direction="row" spacing={1.5} mb={3}>
-              <Resumen icon={<PaidIcon />} color={totalDeuda > 0 ? 'error.main' : 'success.main'}
-                valor={dinero(totalDeuda)} etiqueta="Por pagar" />
-              <Resumen icon={<ShoppingBagIcon />} color={MARCA}
-                valor={historial.length} etiqueta="Compras" />
-              <Resumen icon={<ReceiptLongIcon />} color={MARCA}
-                valor={dinero(totalGastado)} etiqueta="Total gastado" />
-            </Stack>
-
-            {/* Acciones rápidas */}
-            <Button fullWidth variant="outlined" startIcon={<KeyIcon />}
-              onClick={() => navigate('/cliente/cambiar-password')}
-              sx={{ mb: 3, color: MARCA, borderColor: MARCA, textTransform: 'none', fontWeight: 'bold',
-                '&:hover': { borderColor: MARCA, bgcolor: 'rgba(105,28,50,0.04)' } }}>
-              Cambiar mi contraseña
-            </Button>
+            {/* Resumen (responsivo) */}
+            <Grid container spacing={{ xs: 1, sm: 1.5 }} mb={3}>
+              <Grid item xs={4}>
+                <Resumen icon={<PaidIcon />} color={totalDeuda > 0 ? 'error.main' : 'success.main'}
+                  valor={dinero(totalDeuda)} etiqueta="Por pagar" />
+              </Grid>
+              <Grid item xs={4}>
+                <Resumen icon={<ShoppingBagIcon />} color={MARCA} valor={historial.length} etiqueta="Compras" />
+              </Grid>
+              <Grid item xs={4}>
+                <Resumen icon={<ReceiptLongIcon />} color={MARCA} valor={dinero(totalGastado)} etiqueta="Total gastado" />
+              </Grid>
+            </Grid>
 
             {/* Deudas */}
             <Box display="flex" alignItems="center" gap={1} mb={1.5}>
