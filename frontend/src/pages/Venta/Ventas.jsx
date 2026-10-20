@@ -333,7 +333,7 @@ export default function Ventas() {
             flexDirection: 'column',
             height: { xs: 'auto', md: 'calc(100vh - 112px)' },
             maxHeight: { xs: 'none', md: 'calc(100vh - 112px)' },
-            overflow: 'hidden',
+            overflow: { xs: 'visible', md: 'hidden' },
             bgcolor: '#ffffff',
             border: '1px solid #e9ecef'
           }}
@@ -381,7 +381,7 @@ export default function Ventas() {
               </Typography>
             </Box>
           ) : (
-            <Box display="flex" flexDirection="column" flex={1} overflow="hidden" sx={{ minHeight: 0 }}>
+            <Box display="flex" flexDirection="column" flex={1} sx={{ minHeight: 0, overflow: { xs: 'visible', md: 'hidden' } }}>
               <Stack 
                 direction="row" 
                 alignItems="center" 
@@ -393,7 +393,7 @@ export default function Ventas() {
                 <Box sx={{ width: '40px' }}></Box>
               </Stack>
 
-              <Box flex={1} overflow="auto" sx={{ minHeight: 0, '&::-webkit-scrollbar': { width: '8px' }, '&::-webkit-scrollbar-thumb': { bgcolor: '#ced4da', borderRadius: '4px' } }}>
+              <Box flex={1} sx={{ minHeight: 0, overflowY: { xs: 'visible', md: 'auto' }, '&::-webkit-scrollbar': { width: '8px' }, '&::-webkit-scrollbar-thumb': { bgcolor: '#ced4da', borderRadius: '4px' } }}>
                 {carrito.map((item) => (
                   <Stack 
                     key={item.productoId} 
