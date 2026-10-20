@@ -1,5 +1,6 @@
 package com.sedif.sistema_cafeteria.core.usuarios;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,9 +12,11 @@ import java.util.stream.Collectors;
 public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UsuarioService(UsuarioRepository usuarioRepository) {
+    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
@@ -35,15 +38,33 @@ public class UsuarioService {
         Usuario usuario = new Usuario();
         usuario.setNombre(request.nombre());
         usuario.setUsername(request.username());
-        // TODO: Si usas Spring Security, recuerda usar passwordEncoder.encode(passwordPlana)
-        usuario.setPassword(passwordPlana);
+        // Se guarda encriptada como temporal para forzar el cambio en el primer ingreso.
+        usuario.setPasswordTemporal(passwordEncoder.encode(passwordPlana));
         usuario.setRol(request.rol());
         usuario.setActivo(true);
 
         Usuario guardado = usuarioRepository.save(usuario);
-        
+
         // Retornamos la contraseña plana únicamente en la creación
         return mapearADTO(guardado, passwordPlana);
+    }
+
+    /**
+     * Restablecimiento por administrador (Opción B): para el personal del sistema
+     * que no tiene correo. Genera una contraseña temporal, la deja encriptada y
+     * la devuelve en claro UNA sola vez para que el admin se la entregue en mano.
+     * En su siguiente ingreso el usuario quedará obligado a cambiarla.
+     */
+    @Transactional
+    public UsuarioResponse restablecerPassword(Long id) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        String passwordPlana = UUID.randomUUID().toString().substring(0, 8);
+        usuario.setPasswordTemporal(passwordEncoder.encode(passwordPlana));
+        usuarioRepository.save(usuario);
+
+        return mapearADTO(usuario, passwordPlana);
     }
 
     @Transactional

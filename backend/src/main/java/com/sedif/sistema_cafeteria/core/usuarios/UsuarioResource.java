@@ -48,4 +48,12 @@ public class UsuarioResource {
         UsuarioResponse response = usuarioService.actualizar(id, request);
         return ResponseEntity.ok(response);
     }
+
+    // Restablecimiento de contraseña del personal por el administrador (Opción B).
+    // Devuelve la contraseña temporal en claro una sola vez para entregarla al usuario.
+    @PutMapping("/{id}/restablecer-password")
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMINISTRADOR', 'SUPER_ADMINISTRADOR', 'ROLE_ADMINISTRADOR', 'ADMINISTRADOR', 'ROLE_ADMIN', 'ADMIN', 'ROLE_SUPER_ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<UsuarioResponse> restablecerPassword(@PathVariable Long id) {
+        return ResponseEntity.ok(usuarioService.restablecerPassword(id));
+    }
 }

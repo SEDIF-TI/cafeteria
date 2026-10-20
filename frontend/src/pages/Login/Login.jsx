@@ -180,8 +180,11 @@ const Login = () => {
           <Box sx={{ textAlign: 'center', mt: 2 }}>
             <Button variant="text" onClick={() => navigate('/cliente/recuperar')}
               sx={{ color: 'primary.main', textTransform: 'none', fontSize: '0.9rem' }}>
-              ¿Olvidaste tu contraseña?
+              ¿Olvidaste tu contraseña? (clientes)
             </Button>
+            <Typography variant="caption" sx={{ display: 'block', color: '#94a3b8', mt: 0.5 }}>
+              Si eres personal del sistema, solicita el restablecimiento al administrador.
+            </Typography>
           </Box>
         </form>
       </Paper>

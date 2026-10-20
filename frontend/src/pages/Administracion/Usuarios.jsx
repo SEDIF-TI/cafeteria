@@ -27,6 +27,7 @@ import IconButton from '@mui/material/IconButton';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import LockResetIcon from '@mui/icons-material/LockReset';
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
@@ -124,6 +125,29 @@ export default function Usuarios() {
     }
   };
 
+  // Restablecer la contraseña del personal (Opción B: sin correo, el admin la entrega en mano)
+  const handleResetPassword = async (usuario) => {
+    try {
+      const response = await api.put(`/usuarios/${usuario.id}/restablecer-password`);
+      const data = response.data.data || response.data;
+      if (data && data.passwordTemporal) {
+        setPasswordCreada({
+          nombre: data.nombre,
+          password: data.passwordTemporal,
+          esReset: true
+        });
+      }
+    } catch (error) {
+      console.error('Error al restablecer la contraseña:', error);
+      setModalMensaje({
+        open: true,
+        titulo: 'Error',
+        texto: 'No se pudo restablecer la contraseña del usuario.',
+        esError: true
+      });
+    }
+  };
+
   // Función para cambiar el estado del usuario
   const handleToggleEstado = async (usuario) => {
     try {
@@ -207,7 +231,14 @@ export default function Usuarios() {
                     >
                       <EditIcon />
                     </IconButton>
-                    <IconButton 
+                    <IconButton
+                      color="warning"
+                      onClick={() => handleResetPassword(usuario)}
+                      title="Restablecer contraseña"
+                    >
+                      <LockResetIcon />
+                    </IconButton>
+                    <IconButton
                       color={usuario.activo ? 'error' : 'success'}
                       onClick={() => handleToggleEstado(usuario)}
                       title={usuario.activo ? 'Desactivar' : 'Activar'}
@@ -305,12 +336,14 @@ export default function Usuarios() {
       {passwordCreada && (
         <Dialog open={true} onClose={() => setPasswordCreada(null)}>
           <DialogTitle sx={{ color: 'success.main', fontWeight: 'bold' }}>
-            Usuario Creado Exitosamente
+            {passwordCreada.esReset ? 'Contraseña Restablecida' : 'Usuario Creado Exitosamente'}
           </DialogTitle>
           <DialogContent>
             <DialogContentText sx={{ color: 'text.primary', mt: 1 }}>
-              El usuario <b>{passwordCreada.nombre}</b> se ha creado correctamente.<br /><br />
-              Su contraseña temporal es: 
+              {passwordCreada.esReset
+                ? <>Se restableció el acceso de <b>{passwordCreada.nombre}</b>. Deberá cambiarla al iniciar sesión.<br /><br /></>
+                : <>El usuario <b>{passwordCreada.nombre}</b> se ha creado correctamente.<br /><br /></>}
+              Su contraseña temporal es:
               <Typography variant="h6" component="span" sx={{ display: 'block', my: 2, textAlign: 'center', p: 1, backgroundColor: '#f0f0f0', borderRadius: 1, letterSpacing: 2 }}>
                 {passwordCreada.password}
               </Typography>
