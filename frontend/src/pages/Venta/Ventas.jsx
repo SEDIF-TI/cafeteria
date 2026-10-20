@@ -239,12 +239,12 @@ export default function Ventas() {
           <Button
             variant="outlined"
             sx={{
-              color: '#691c32',
-              borderColor: '#691c32',
+              color: 'primary.main',
+              borderColor: 'primary.main',
               fontWeight: 'bold',
               borderRadius: 2,
               '&:hover': {
-                borderColor: '#4a1323',
+                borderColor: 'primary.dark',
                 backgroundColor: 'rgba(105, 28, 50, 0.04)'
               }
             }}
@@ -275,7 +275,7 @@ export default function Ventas() {
                     borderRadius: 4,
                     bgcolor: '#ffffff',
                     '&:hover': {
-                      borderColor: agotado ? '#e0e0e0' : '#691c32',
+                      borderColor: agotado ? '#e0e0e0' : 'primary.main',
                       transform: agotado ? 'none' : 'translateY(-4px)',
                       boxShadow: agotado ? 'none' : '0 10px 24px rgba(105, 28, 50, 0.15)',
                     }
@@ -343,7 +343,7 @@ export default function Ventas() {
             sx={{ p: 3, bgcolor: '#ffffff', borderBottom: '1px solid #e9ecef' }}
           >
             <Stack direction="row" spacing={1.5} alignItems="center">
-              <ShoppingCartIcon sx={{ color: '#691c32', fontSize: 32 }} />
+              <ShoppingCartIcon sx={{ color: 'primary.main', fontSize: 32 }} />
               <Typography variant="h5" fontWeight="800" color="text.primary" sx={{ m: 0 }}>
                 Ticket de Venta
               </Typography>
@@ -471,14 +471,14 @@ export default function Ventas() {
                   startIcon={<PointOfSaleIcon sx={{ fontSize: '1.8rem !important' }} />}
                   onClick={() => setOpenCobroDialog(true)}
                   sx={{ 
-                    backgroundColor: '#691c32', 
+                    backgroundColor: 'primary.main', 
                     py: 2,
                     borderRadius: 3,
                     fontWeight: '800',
                     fontSize: '1.2rem',
                     textTransform: 'none',
                     boxShadow: '0 6px 16px rgba(105, 28, 50, 0.25)',
-                    '&:hover': { backgroundColor: '#4a1323', shadow: '0 8px 24px rgba(105, 28, 50, 0.35)' }
+                    '&:hover': { backgroundColor: 'primary.dark', shadow: '0 8px 24px rgba(105, 28, 50, 0.35)' }
                   }}
                 >
                   Cobrar Venta
@@ -560,9 +560,9 @@ export default function Ventas() {
               <MenuItem value="DEUDA" sx={{ fontSize: '1.1rem', py: 1.5 }}>Crédito / Fiado (Deuda)</MenuItem>
             </TextField>
 
-            {metodoPago === 'EFECTIVO' && !hayTurno && (
+            {!hayTurno && (
               <Alert severity="warning" sx={{ mt: 2 }}>
-                No hay un turno de caja abierto. Abre uno en <b>Caja</b> para cobrar en efectivo.
+                No hay un turno de caja abierto. Abre uno en <b>Caja y Turnos</b> para registrar la venta.
               </Alert>
             )}
 

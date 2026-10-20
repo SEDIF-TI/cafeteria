@@ -58,15 +58,14 @@ public class VentaService {
             throw new IllegalArgumentException("La venta debe contener al menos un producto.");
         }
 
-        // Las ventas en efectivo entran a la caja: exigen un turno abierto.
-        // Los demas metodos (tarjeta, transferencia, credito) no mueven efectivo.
+        // Toda venta se registra dentro de un turno de caja abierto, incluidas las de
+        // credito: asi queda constancia del turno en que se genero la deuda. Solo el
+        // efectivo suma al arqueo del dia; la deuda se cobra despues (por quincena) y
+        // ese pago entrara al turno del dia en que se liquide.
+        Turno turnoActivo = turnoRepository.findByEstaActivoTrue()
+                .orElseThrow(() -> new IllegalStateException(
+                        "Debes abrir un turno en caja antes de registrar una venta."));
         boolean esEfectivo = "EFECTIVO".equalsIgnoreCase(request.metodoPago());
-        Turno turnoActivo = null;
-        if (esEfectivo) {
-            turnoActivo = turnoRepository.findByEstaActivoTrue()
-                    .orElseThrow(() -> new IllegalStateException(
-                            "Debes abrir un turno en caja antes de cobrar en efectivo."));
-        }
 
         // 1. Crear e insertar la venta con total inicial en cero
         Venta venta = Venta.builder()
@@ -150,16 +149,24 @@ public class VentaService {
         ventaGuardada.setTotal(totalVenta);
         ventaRepository.save(ventaGuardada);
 
-        // 3b. Registrar el ingreso en la caja cuando el cobro fue en efectivo.
-        if (turnoActivo != null) {
-            movimientoCajaRepository.save(MovimientoCaja.builder()
-                    .turno(turnoActivo)
-                    .fechaHora(LocalDateTime.now())
-                    .tipo("INGRESO_VENTA")
-                    .monto(totalVenta)
-                    .descripcion("Venta en efectivo - Ticket #" + ventaGuardada.getPnId())
-                    .ventaOrigenId(ventaGuardada.getPnId())
-                    .build());
+        // 3b. Registrar el movimiento en el turno segun la forma de pago.
+        boolean esCredito = ventaGuardada.getEstado() == EstadoVenta.PENDIENTE;
+        String tipoMov = esEfectivo ? "INGRESO_VENTA" : (esCredito ? "VENTA_CREDITO" : "INGRESO_NO_EFECTIVO");
+        String descMov = esEfectivo
+                ? "Venta en efectivo - Ticket #" + ventaGuardada.getPnId()
+                : esCredito
+                    ? "Venta a credito (pendiente de pago) - Ticket #" + ventaGuardada.getPnId()
+                    : "Venta " + ventaGuardada.getMetodoPago() + " - Ticket #" + ventaGuardada.getPnId();
+        movimientoCajaRepository.save(MovimientoCaja.builder()
+                .turno(turnoActivo)
+                .fechaHora(LocalDateTime.now())
+                .tipo(tipoMov)
+                .monto(totalVenta)
+                .descripcion(descMov)
+                .ventaOrigenId(ventaGuardada.getPnId())
+                .build());
+        // Solo el efectivo suma al dinero esperado en caja (arqueo del dia).
+        if (esEfectivo) {
             turnoActivo.setTotalIngresos(
                     (turnoActivo.getTotalIngresos() != null ? turnoActivo.getTotalIngresos() : BigDecimal.ZERO)
                             .add(totalVenta));
