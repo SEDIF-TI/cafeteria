@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import {
   Box, Container, Paper, Typography, TextField, Button,
-  FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Alert, Checkbox
+  FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Alert
 } from '@mui/material';
-import axios from 'axios';
+import api from '../../api/axiosClient';
 
 export default function RegistroClientePublico() {
   const [formData, setFormData] = useState({
     nombre: '',
+    numeroControlEmpleado: '',
+    area: '',
     email: '',
     telefono: '',
-    telegramChatId: '',
     preferenciaNotificacion: 'EMAIL'
   });
   const [exito, setExito] = useState(false);
@@ -27,11 +28,17 @@ export default function RegistroClientePublico() {
     setError('');
 
     try {
-      // Ajustar a la URL publica de tu backend Spring Boot
-      await axios.post('http://localhost:8080/api/v1/clientes/registro-publico', formData);
+      await api.post('/clientes', formData);
       setExito(true);
     } catch (err) {
-      setError(err.response?.data?.message || 'Ocurrió un error al registrar tus datos.');
+      const errores = err.response?.data?.data;
+      const detalle = errores && typeof errores === 'object' ? Object.values(errores).join('. ') : null;
+      const errorMsg = (!err.response && 'No se pudo conectar con el servidor. Verifica tu conexión a la red.') ||
+                       detalle ||
+                       err.response?.data?.message ||
+                       (typeof err.response?.data === 'string' ? err.response.data : null) || 
+                       'Ocurrió un error al registrar tus datos. Verifica que los campos sean válidos.';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -55,10 +62,10 @@ export default function RegistroClientePublico() {
   return (
     <Container maxWidth="xs" sx={{ mt: 4, mb: 4 }}>
       <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
-        <Typography variant="h6" fontWeight="bold" textAlign="center" color="#691c32" gutterBottom>
+        <Typography variant="h6" fontWeight="bold" align="center" sx={{ color: '#691c32' }} gutterBottom>
           Registro de Cliente - SEDIF Cafetería
         </Typography>
-        <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
+        <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
           Escanea y regístrate para recibir tus tickets de compra de forma digital.
         </Typography>
 
@@ -72,6 +79,25 @@ export default function RegistroClientePublico() {
             required
             margin="normal"
             value={formData.nombre}
+            onChange={handleChange}
+          />
+          <TextField
+            label="Código / N° de empleado"
+            name="numeroControlEmpleado"
+            fullWidth
+            required
+            margin="normal"
+            value={formData.numeroControlEmpleado}
+            onChange={handleChange}
+            helperText="Con este código el cajero te identifica en la venta"
+          />
+          <TextField
+            label="Área a la que perteneces (ej. Piso 2 - Jurídico)"
+            name="area"
+            fullWidth
+            required
+            margin="normal"
+            value={formData.area}
             onChange={handleChange}
           />
           <TextField
@@ -91,15 +117,6 @@ export default function RegistroClientePublico() {
             value={formData.telefono}
             onChange={handleChange}
           />
-          <TextField
-            label="ID de Chat / Usuario Telegram"
-            name="telegramChatId"
-            fullWidth
-            margin="normal"
-            helperText="Opcional: Si deseas recibir tus tickets por Telegram"
-            value={formData.telegramChatId}
-            onChange={handleChange}
-          />
 
           <FormControl component="fieldset" sx={{ mt: 2, width: '100%' }}>
             <FormLabel component="legend">¿Cómo prefieres recibir tu ticket?</FormLabel>
@@ -109,8 +126,6 @@ export default function RegistroClientePublico() {
               onChange={handleChange}
             >
               <FormControlLabel value="EMAIL" control={<Radio />} label="Correo Electrónico" />
-              <FormControlLabel value="TELEGRAM" control={<Radio />} label="Telegram" />
-              <FormControlLabel value="AMBOS" control={<Radio />} label="Ambos Medios" />
               <FormControlLabel value="NINGUNO" control={<Radio />} label="No enviar ticket digital" />
             </RadioGroup>
           </FormControl>
@@ -121,7 +136,7 @@ export default function RegistroClientePublico() {
             fullWidth
             size="large"
             disabled={loading}
-            sx={{ mt: 3, backgroundColor: '#691c32', py: 1.5 }}
+            sx={{ mt: 3, backgroundColor: '#691c32', py: 1.5, '&:hover': { backgroundColor: '#4a1323' } }}
           >
             {loading ? 'Guardando...' : 'Completar Registro'}
           </Button>

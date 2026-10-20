@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api/v1'
+  baseURL: import.meta.env.VITE_API_URL || '/api/v1'
 });
 
 api.interceptors.request.use(
@@ -19,7 +19,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
+    const rutasPublicas = ['/registro-cliente', '/cliente'];
+    const esPublica = rutasPublicas.some(r => window.location.pathname.startsWith(r));
+    if (error.response && error.response.status === 401 && !esPublica) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';

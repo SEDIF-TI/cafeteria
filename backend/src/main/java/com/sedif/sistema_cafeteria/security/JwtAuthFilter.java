@@ -1,5 +1,7 @@
 package com.sedif.sistema_cafeteria.security;
 
+import com.sedif.sistema_cafeteria.core.cliente.Cliente;
+import com.sedif.sistema_cafeteria.core.cliente.ClienteRepository;
 import com.sedif.sistema_cafeteria.core.usuarios.Usuario;
 import com.sedif.sistema_cafeteria.core.usuarios.UsuarioRepository;
 import jakarta.servlet.FilterChain;
@@ -31,6 +33,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final UsuarioRepository usuarioRepository;
+    private final ClienteRepository clienteRepository;
 
     @Override
     protected void doFilterInternal(
@@ -52,8 +55,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         final String token = encabezado.substring(PREFIJO.length()).trim();
         final String identificador = tokenProvider.extraerIdentificador(token);
-        
+
         if (identificador == null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // Token del apartado del cliente: identidad distinta a la del personal.
+        if (JwtTokenProvider.TIPO_CLIENTE.equals(tokenProvider.extraerTipo(token))) {
+            autenticarCliente(identificador, request);
             filterChain.doFilter(request, response);
             return;
         }
@@ -79,6 +89,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         });
 
         filterChain.doFilter(request, response);
+    }
+
+    private void autenticarCliente(String numeroControl, HttpServletRequest request) {
+        Optional<Cliente> cliente = clienteRepository.findFirstByNumeroControlEmpleado(numeroControl);
+        if (cliente.isEmpty() || !Boolean.TRUE.equals(cliente.get().getActivo())) {
+            return;
+        }
+        var authToken = new UsernamePasswordAuthenticationToken(
+                numeroControl, null, List.of(new SimpleGrantedAuthority("ROLE_CLIENTE")));
+        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authToken);
     }
 
     private Optional<Usuario> buscarUsuario(String identificador) {

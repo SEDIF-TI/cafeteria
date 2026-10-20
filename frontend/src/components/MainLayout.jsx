@@ -22,7 +22,10 @@ import CategoryIcon from '@mui/icons-material/Category';
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import RestaurantIcon from '@mui/icons-material/Restaurant';
 import GroupIcon from '@mui/icons-material/Group';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import PeopleIcon from '@mui/icons-material/People';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
@@ -37,7 +40,6 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // The useEffect hook must be inside the component body
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -59,10 +61,13 @@ export default function MainLayout() {
     { text: 'Categorías', icon: <CategoryIcon />, path: '/dashboard/categorias' },
     { text: 'Menú de Cafetería', icon: <RestaurantMenuIcon />, path: '/dashboard/menu' },
     { text: 'Ventas y Caja', icon: <PointOfSaleIcon />, path: '/dashboard/ventas' },
+    { text: 'Historial de Ventas', icon: <ReceiptLongIcon />, path: '/dashboard/historial-ventas' },
     { text: 'Inventario (Prod. Terminados)', icon: <InventoryIcon />, path: '/dashboard/inventario' },
+    { text: 'Utensilios (Cubiertos)', icon: <RestaurantIcon />, path: '/dashboard/utensilios' },
     { text: 'Recetas', icon: <RestaurantMenuIcon />, path: '/dashboard/recetas' },
     { text: 'Personal', icon: <GroupIcon />, path: '/dashboard/usuarios' },
     { text: 'Deudores', icon: <MoneyOffIcon />, path: '/dashboard/deudores' },
+    { text: 'Clientes', icon: <PeopleIcon />, path: '/dashboard/clientes' },
   ];
 
   const drawerContent = (
@@ -195,11 +200,13 @@ export default function MainLayout() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 4,
+          p: 3, // Reduje ligeramente el padding de 4 a 3 para que respire mejor
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           mt: '64px',
           backgroundColor: '#f8fafc',
-          minHeight: 'calc(100vh - 64px)'
+          minHeight: 'calc(100vh - 64px)',
+          boxSizing: 'border-box', // OBLIGA a que el padding se calcule hacia adentro
+          overflowX: 'hidden' // CLAVE: Evita que las gráficas rompan el contenedor
         }}
       >
         <Outlet />

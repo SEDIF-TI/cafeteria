@@ -75,6 +75,12 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(MessageConstants.DATOS_INVALIDOS, errores));
     }
 
+    /** Recurso inexistente: 404. Los servicios lanzan EntityNotFoundException. */
+    @ExceptionHandler(jakarta.persistence.EntityNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> manejarNoEncontrado(jakarta.persistence.EntityNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
+    }
+
     /** Reglas de negocio incumplidas: 400. Los servicios lanzan esta excepcion. */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> manejarArgumentoInvalido(IllegalArgumentException ex) {

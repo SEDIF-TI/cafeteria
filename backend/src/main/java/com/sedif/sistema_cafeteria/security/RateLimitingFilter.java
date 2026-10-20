@@ -52,7 +52,11 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     /** Rutas vigiladas: las que aceptan credenciales sin autenticacion previa. */
     private static final Set<String> RUTAS_PROTEGIDAS = Set.of(
             "/api/v1/auth/login",
-            "/api/v1/auth/registro"
+            "/api/v1/auth/registro",
+            "/api/v1/clientes",
+            "/api/v1/clientes/login",
+            "/api/v1/clientes/recuperar/solicitar",
+            "/api/v1/clientes/recuperar/confirmar"
     );
 
     /**
@@ -111,7 +115,12 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
-        return !RUTAS_PROTEGIDAS.contains(request.getServletPath());
+        String ruta = request.getServletPath();
+        // En /clientes solo se limita el registro publico (POST), no las consultas internas
+        if ("/api/v1/clientes".equals(ruta) && !"POST".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+        return !RUTAS_PROTEGIDAS.contains(ruta);
     }
 
     private Bucket crearCubeta() {

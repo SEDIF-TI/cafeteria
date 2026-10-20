@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Grid, Paper, Typography, Box, Card, CardContent, CardActionArea,
   Button, IconButton, TextField, MenuItem, Dialog, DialogTitle, 
-  DialogContent, DialogActions, Chip, Alert, Stack, Divider
+  DialogContent, DialogActions, Chip, Alert, Stack, Divider, Autocomplete,
+  FormControlLabel, Switch
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -10,6 +11,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import RemoveShoppingCartIcon from '@mui/icons-material/RemoveShoppingCart';
+import QrCodeIcon from '@mui/icons-material/QrCode'; // Importación agregada
+
+import ModalQRCliente from '../registro-cliente/ModalQRCliente';
 import api from '../../api/axiosClient';
 
 export default function Ventas() {
@@ -19,14 +23,39 @@ export default function Ventas() {
   const [montoRecibido, setMontoRecibido] = useState('');
   const [openCobroDialog, setOpenCobroDialog] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [clientes, setClientes] = useState([]);
+  
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+  const [openQRModal, setOpenQRModal] = useState(false);
+
+  // Salida de cubiertos fuera de la cafetería
+  const [utensilios, setUtensilios] = useState([]);
+  const [llevaCubiertos, setLlevaCubiertos] = useState(false);
+  const [codigoEmpleado, setCodigoEmpleado] = useState('');
+  const [areaDestino, setAreaDestino] = useState('');
+  const [cantidadesCubiertos, setCantidadesCubiertos] = useState({});
+
+  const resetCubiertos = () => {
+    setLlevaCubiertos(false);
+    setCodigoEmpleado('');
+    setAreaDestino('');
+    setCantidadesCubiertos({});
+  };
 
   const cargarCatalogos = async () => {
     try {
-      const resProd = await api.get('/productos');
-      const productosVenta = resProd.data.filter((p) => Number(p.precio) > 0);
+      const [resProd, resClientes, resUtensilios] = await Promise.all([
+        api.get('/productos'),
+        api.get('/clientes'),
+        api.get('/utensilios/activos').catch(() => ({ data: [] }))
+      ]);
+
+      const productosVenta = (resProd.data || []).filter((p) => Number(p.precio) > 0);
       setProductos(productosVenta);
+      setClientes(resClientes.data || []);
+      setUtensilios(resUtensilios.data || []);
     } catch (error) {
-      console.error('Error al cargar productos para venta:', error);
+      console.error('Error al cargar catálogos:', error);
     }
   };
 
@@ -89,35 +118,88 @@ export default function Ventas() {
   const handleProcesarVenta = async () => {
     if (carrito.length === 0) return;
 
-    if (metodoPago === 'EFECTIVO' && (parseFloat(montoRecibido) < totalVenta || isNaN(parseFloat(montoRecibido)))) {
-      alert('El monto ingresado es menor al total de la compra.');
+    const montoNum = parseFloat(montoRecibido);
+
+    if (metodoPago === 'EFECTIVO') {
+      if (isNaN(montoNum) || montoNum < 0) {
+        alert('Ingresa un monto recibido válido y mayor o igual a cero.');
+        return;
+      }
+      if (montoNum < totalVenta) {
+        alert('El monto ingresado es menor al total de la compra.');
+        return;
+      }
+    }
+
+    if (metodoPago === 'DEUDA' && !clienteSeleccionado) {
+      alert('Debes seleccionar un cliente obligatoriamente para registrar una venta a crédito/deuda.');
       return;
+    }
+
+    const utensiliosSalida = Object.entries(cantidadesCubiertos)
+      .filter(([, cant]) => Number(cant) > 0)
+      .map(([utensilioId, cant]) => ({ utensilioId: Number(utensilioId), cantidad: Number(cant) }));
+
+    if (llevaCubiertos) {
+      if (!codigoEmpleado.trim() || !areaDestino.trim()) {
+        alert('Para llevarse cubiertos indica el código de empleado y el área destino.');
+        return;
+      }
+      if (utensiliosSalida.length === 0) {
+        alert('Indica al menos un cubierto y su cantidad.');
+        return;
+      }
     }
 
     setLoading(true);
 
+    let usuarioSesionId = 4;
+    try {
+      const userObj = JSON.parse(localStorage.getItem('usuario'));
+      if (userObj && userObj.id) usuarioSesionId = userObj.id;
+    } catch {
+      usuarioSesionId = 4;
+    }
+
+    const clienteIdCalculado = clienteSeleccionado 
+      ? Number(clienteSeleccionado.id || clienteSeleccionado.clienteId || clienteSeleccionado.pnId) 
+      : null;
+
     const payload = {
+      usuarioId: usuarioSesionId,
+      clienteId: clienteIdCalculado,
+      estado: metodoPago === 'DEUDA' ? 'PENDIENTE' : 'PAGADO',
       metodoPago,
       total: totalVenta,
-      montoRecibido: metodoPago === 'EFECTIVO' ? parseFloat(montoRecibido) : totalVenta,
+      montoRecibido: metodoPago === 'EFECTIVO' ? montoNum : (metodoPago === 'DEUDA' ? 0 : totalVenta),
       cambio: metodoPago === 'EFECTIVO' ? cambio : 0,
-      detalles: carrito.map((item) => ({
+      items: carrito.map((item) => ({
         productoId: item.productoId,
         cantidad: item.cantidad,
         precioUnitario: item.precio,
         subtotal: item.precio * item.cantidad
-      }))
+      })),
+      llevaCubiertos,
+      cubiertos: llevaCubiertos
+        ? { codigoEmpleado: codigoEmpleado.trim(), area: areaDestino.trim(), utensilios: utensiliosSalida }
+        : null
     };
 
     try {
       await api.post('/ventas', payload);
+
       alert('¡Venta realizada con éxito!');
+      resetCubiertos();
       setCarrito([]);
       setMontoRecibido('');
+      setClienteSeleccionado(null);
+      setMetodoPago('EFECTIVO');
       setOpenCobroDialog(false);
       cargarCatalogos();
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'Ocurrió un error al procesar la venta.';
+      const errorMsg = error.response?.data?.message || 
+                       (typeof error.response?.data === 'string' ? error.response.data : null) || 
+                       'Ocurrió un error al procesar la venta.';
       alert(`Error en caja:\n${errorMsg}`);
     } finally {
       setLoading(false);
@@ -140,13 +222,33 @@ export default function Ventas() {
     >
       {/* ================= COLUMNA IZQUIERDA: CATÁLOGO ================= */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Box mb={4}>
-          <Typography variant="h4" fontWeight="900" color="text.primary" gutterBottom>
-            Punto de Venta
-          </Typography>
-          <Typography variant="subtitle1" color="text.secondary">
-            Selecciona los productos para agregarlos al ticket de venta.
-          </Typography>
+        <Box mb={4} display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2}>
+          <Box>
+            <Typography variant="h4" fontWeight="900" color="text.primary" gutterBottom>
+              Punto de Venta
+            </Typography>
+            <Typography variant="subtitle1" color="text.secondary">
+              Selecciona los productos para agregarlos al ticket de venta.
+            </Typography>
+          </Box>
+
+          <Button
+            variant="outlined"
+            sx={{
+              color: '#691c32',
+              borderColor: '#691c32',
+              fontWeight: 'bold',
+              borderRadius: 2,
+              '&:hover': {
+                borderColor: '#4a1323',
+                backgroundColor: 'rgba(105, 28, 50, 0.04)'
+              }
+            }}
+            startIcon={<QrCodeIcon />}
+            onClick={() => setOpenQRModal(true)}
+          >
+            QR Registro Cliente
+          </Button>
         </Box>
         
         <Grid container spacing={3}>
@@ -252,7 +354,6 @@ export default function Ventas() {
           </Stack>
 
           {carrito.length === 0 ? (
-            // ESTADO VACÍO CENTRADO CORRECTAMENTE
             <Box 
               sx={{ 
                 flex: 1, 
@@ -276,8 +377,6 @@ export default function Ventas() {
             </Box>
           ) : (
             <Box display="flex" flexDirection="column" flex={1} overflow="hidden">
-              
-              {/* Encabezados del Ticket */}
               <Stack 
                 direction="row" 
                 alignItems="center" 
@@ -289,7 +388,6 @@ export default function Ventas() {
                 <Box sx={{ width: '40px' }}></Box>
               </Stack>
 
-              {/* Lista de Productos */}
               <Box flex={1} overflow="auto" sx={{ '&::-webkit-scrollbar': { width: '8px' }, '&::-webkit-scrollbar-thumb': { bgcolor: '#ced4da', borderRadius: '4px' } }}>
                 {carrito.map((item) => (
                   <Stack 
@@ -355,7 +453,6 @@ export default function Ventas() {
                 ))}
               </Box>
 
-              {/* Footer del Ticket */}
               <Box sx={{ p: 3, bgcolor: '#ffffff', borderTop: '1px solid #e9ecef', boxShadow: '0 -4px 20px rgba(0,0,0,0.03)' }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3, p: 2.5, bgcolor: '#f8f9fa', borderRadius: 3 }}>
                   <Typography variant="h6" fontWeight="700" color="text.secondary">
@@ -380,7 +477,7 @@ export default function Ventas() {
                     fontSize: '1.2rem',
                     textTransform: 'none',
                     boxShadow: '0 6px 16px rgba(105, 28, 50, 0.25)',
-                    '&:hover': { backgroundColor: '#4a1323', boxShadow: '0 8px 24px rgba(105, 28, 50, 0.35)' }
+                    '&:hover': { backgroundColor: '#4a1323', shadow: '0 8px 24px rgba(105, 28, 50, 0.35)' }
                   }}
                 >
                   Cobrar Venta
@@ -401,6 +498,53 @@ export default function Ventas() {
             </Typography>
             <Divider sx={{ mb: 4 }} />
             
+            <Autocomplete
+              options={clientes}
+              getOptionLabel={(option) => {
+                if (!option) return '';
+                const numControl = option.numeroControl ? ` (N° ${option.numeroControl})` : '';
+                const area = option.area ? ` - ${option.area}` : '';
+                return `${option.nombre || ''}${numControl}${area}`;
+              }}
+              isOptionEqualToValue={(option, value) => {
+                const optId = option.id || option.clienteId || option.pnId;
+                const valId = value?.id || value?.clienteId || value?.pnId;
+                return optId === valId;
+              }}
+              filterOptions={(options, { inputValue }) => {
+                const term = inputValue.toLowerCase().trim();
+                if (!term) return options;
+                return options.filter((c) => {
+                  const matchNombre = c.nombre?.toLowerCase().includes(term);
+                  const matchControl = c.numeroControl?.toString().toLowerCase().includes(term);
+                  const matchTel = c.telefono?.toString().toLowerCase().includes(term);
+                  const matchArea = c.area?.toLowerCase().includes(term);
+                  return matchNombre || matchControl || matchTel || matchArea;
+                });
+              }}
+              value={clienteSeleccionado}
+              onChange={(event, newValue) => {
+                setClienteSeleccionado(newValue);
+                // Los datos del empleado se toman de su registro: el cajero no tiene que capturarlos
+                setCodigoEmpleado(newValue?.numeroControl || '');
+                setAreaDestino(newValue?.area || '');
+              }}
+              renderInput={(params) => (
+                <TextField 
+                  {...params} 
+                  label="Cliente (Nombre o N° de Control)" 
+                  placeholder="Dejar en blanco para Público General" 
+                  fullWidth 
+                  sx={{ mb: 3 }}
+                  InputProps={{
+                    ...params.InputProps,
+                    sx: { borderRadius: 2 }
+                  }}
+                />
+              )}
+              noOptionsText="No se encontraron clientes"
+            />
+
             <TextField 
               select 
               label="Método de Pago" 
@@ -412,6 +556,7 @@ export default function Ventas() {
               <MenuItem value="EFECTIVO" sx={{ fontSize: '1.1rem', py: 1.5 }}>Efectivo</MenuItem>
               <MenuItem value="TARJETA" sx={{ fontSize: '1.1rem', py: 1.5 }}>Tarjeta de Débito / Crédito</MenuItem>
               <MenuItem value="TRANSFERENCIA" sx={{ fontSize: '1.1rem', py: 1.5 }}>Transferencia</MenuItem>
+              <MenuItem value="DEUDA" sx={{ fontSize: '1.1rem', py: 1.5 }}>Crédito / Fiado (Deuda)</MenuItem>
             </TextField>
 
             {metodoPago === 'EFECTIVO' && (
@@ -421,8 +566,14 @@ export default function Ventas() {
                   type="number" 
                   fullWidth 
                   value={montoRecibido} 
-                  onChange={(e) => setMontoRecibido(e.target.value)} 
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || parseFloat(val) >= 0) {
+                      setMontoRecibido(val);
+                    }
+                  }} 
                   autoFocus 
+                  inputProps={{ min: 0, step: 'any' }}
                   InputProps={{ sx: { fontSize: '1.3rem', fontWeight: 'bold', borderRadius: 2, height: '60px' } }}
                 />
                 {parseFloat(montoRecibido) >= totalVenta && (
@@ -431,6 +582,64 @@ export default function Ventas() {
                   </Alert>
                 )}
               </Box>
+            )}
+
+            <Divider sx={{ my: 3 }} />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={llevaCubiertos}
+                  onChange={(e) => {
+                    const activo = e.target.checked;
+                    setLlevaCubiertos(activo);
+                    if (activo && clienteSeleccionado) {
+                      setCodigoEmpleado(clienteSeleccionado.numeroControl || codigoEmpleado);
+                      setAreaDestino(clienteSeleccionado.area || areaDestino);
+                    }
+                  }}
+                  color="warning"
+                />
+              }
+              label={<Typography fontWeight="bold">¿Se lleva cubiertos fuera de la cafetería?</Typography>}
+            />
+
+            {llevaCubiertos && (
+              <Stack spacing={2} sx={{ mt: 2 }}>
+                <TextField
+                  label="Código de empleado"
+                  value={codigoEmpleado}
+                  onChange={(e) => setCodigoEmpleado(e.target.value)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Área / ubicación destino (ej. Piso 2 - Jurídico)"
+                  value={areaDestino}
+                  onChange={(e) => setAreaDestino(e.target.value)}
+                  fullWidth
+                  required
+                />
+                {utensilios.length === 0 ? (
+                  <Alert severity="warning">No hay utensilios registrados. Dalos de alta en el módulo Utensilios.</Alert>
+                ) : (
+                  utensilios.map((u) => (
+                    <TextField
+                      key={u.id}
+                      label={`${u.nombre} (disponibles: ${u.stockDisponible})`}
+                      type="number"
+                      size="small"
+                      value={cantidadesCubiertos[u.id] ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || (Number(val) >= 0 && Number(val) <= u.stockDisponible)) {
+                          setCantidadesCubiertos((prev) => ({ ...prev, [u.id]: val }));
+                        }
+                      }}
+                      inputProps={{ min: 0, max: u.stockDisponible }}
+                    />
+                  ))
+                )}
+              </Stack>
             )}
           </Box>
         </DialogContent>
@@ -443,6 +652,12 @@ export default function Ventas() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ================= MODAL CÓDIGO QR PARA REGISTRO DE CLIENTE ================= */}
+      <ModalQRCliente 
+        open={openQRModal} 
+        onClose={() => setOpenQRModal(false)} 
+      />
     </Box>
   );
 }

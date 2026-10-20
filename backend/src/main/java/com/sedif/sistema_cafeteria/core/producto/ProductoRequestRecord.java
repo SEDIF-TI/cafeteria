@@ -19,6 +19,10 @@ public record ProductoRequestRecord(
         @Min(value = 0, message = "El precio no puede ser negativo")
         BigDecimal precio,
 
+        @NotNull(message = "El costo es obligatorio")
+        @Min(value = 0, message = "El costo no puede ser negativo")
+        BigDecimal costo,
+
         @NotNull(message = "Debe especificar si el producto es directo")
         Boolean esDirecto,
 

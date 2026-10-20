@@ -10,11 +10,12 @@ import com.sedif.sistema_cafeteria.core.inventario.Inventario;
 import com.sedif.sistema_cafeteria.core.inventario.InventarioRepository;
 import com.sedif.sistema_cafeteria.core.notificaciones.EmailService;
 import com.sedif.sistema_cafeteria.core.producto.Producto;
-import com.sedif.sistema_cafeteria.core.producto.ProductoInsumo;
-import com.sedif.sistema_cafeteria.core.producto.ProductoInsumoRepository;
 import com.sedif.sistema_cafeteria.core.producto.ProductoRepository;
+import com.sedif.sistema_cafeteria.core.recetas.Receta;
+import com.sedif.sistema_cafeteria.core.recetas.RecetaRepository;
 import com.sedif.sistema_cafeteria.core.usuarios.Usuario;
 import com.sedif.sistema_cafeteria.core.usuarios.UsuarioRepository;
+import com.sedif.sistema_cafeteria.core.utensilio.UtensilioService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,13 +33,14 @@ public class VentaService {
     private final VentaRepository ventaRepository;
     private final ProductoRepository productoRepository;
     private final InventarioRepository inventarioRepository;
-    private final ProductoInsumoRepository productoInsumoRepository;
+    private final RecetaRepository recetaRepository;
     private final UsuarioRepository usuarioRepository;
     private final TurnoRepository turnoRepository;
     private final MovimientoCajaRepository movimientoCajaRepository;
     
     private final ClienteRepository clienteRepository; 
     private final EmailService emailService;
+    private final UtensilioService utensilioService;
 
     @Transactional
     public VentaResponseRecord registrarVenta(VentaRequestRecord request) {
@@ -52,16 +54,20 @@ public class VentaService {
                     .orElseThrow(() -> new EntityNotFoundException("Cliente no encontrado con id: " + request.clienteId()));
         }
 
-        // 1. Crear e insertar primero la venta con total en cero para obtener el ID generado por la BD
+        if (request.items() == null || request.items().isEmpty()) {
+            throw new IllegalArgumentException("La venta debe contener al menos un producto.");
+        }
+
+        // 1. Crear e insertar la venta con total inicial en cero
         Venta venta = Venta.builder()
                 .usuario(usuario)
                 .cliente(cliente)
                 .estado(request.estado())
+                .metodoPago(request.metodoPago())
                 .total(BigDecimal.ZERO)
                 .detalles(new ArrayList<>())
                 .build();
 
-        // FORZAR LA INSERCIÓN INMEDIATA en PostgreSQL usando saveAndFlush()
         Venta ventaGuardada = ventaRepository.saveAndFlush(venta);
 
         BigDecimal totalVenta = BigDecimal.ZERO;
@@ -74,29 +80,51 @@ public class VentaService {
             BigDecimal subtotal = producto.getPrecio().multiply(cantidadItem);
             totalVenta = totalVenta.add(subtotal);
 
+            // Descuento de stock
             if (Boolean.TRUE.equals(producto.getEsDirecto())) {
                 Inventario inventario = producto.getInventario();
-                if (inventario.getStockActual().compareTo(cantidadItem) < 0) {
+                if (inventario == null) {
+                    throw new IllegalArgumentException("El producto directo '" + producto.getNombre() + "' no cuenta con registro de inventario.");
+                }
+                if (inventario.getStockActual() == null || inventario.getStockActual().compareTo(cantidadItem) < 0) {
                     throw new IllegalArgumentException("Stock insuficiente para el producto directo: " + producto.getNombre());
                 }
                 inventario.setStockActual(inventario.getStockActual().subtract(cantidadItem));
                 inventarioRepository.save(inventario);
             } else {
-                List<ProductoInsumo> receta = productoInsumoRepository.findByProductoId(producto.getId());
-                for (ProductoInsumo recetaItem : receta) {
-                    Inventario insumo = recetaItem.getInsumo();
-                    BigDecimal cantidadReqInsumo = BigDecimal.valueOf(recetaItem.getCantidadRequerida());
+                List<Receta> receta = recetaRepository.findByProductoPadreId(producto.getId());
+
+                // Un producto compuesto sin receta se venderia sin descontar insumos:
+                // se bloquea para no vaciar el inventario de forma invisible.
+                if (receta.isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "El producto '" + producto.getNombre() + "' no tiene receta configurada; "
+                            + "no se puede descontar inventario. Configura su receta antes de venderlo.");
+                }
+
+                for (Receta recetaItem : receta) {
+                    Inventario insumo = null;
+                    if (recetaItem.getInsumo() != null) {
+                        insumo = recetaItem.getInsumo().getInventario();
+                    }
+
+                    if (insumo == null) {
+                        throw new IllegalArgumentException("Insumo de inventario no configurado para el producto: " + producto.getNombre());
+                    }
+
+                    BigDecimal cantidadReqInsumo = recetaItem.getCantidad() != null ? recetaItem.getCantidad() : BigDecimal.ZERO;
                     BigDecimal cantidadRequeridaTotal = cantidadReqInsumo.multiply(cantidadItem);
 
-                    if (insumo.getStockActual().compareTo(cantidadRequeridaTotal) < 0) {
-                        throw new IllegalArgumentException("Stock insuficiente en insumo de receta: " + insumo.getNombre());
+                    if (insumo.getStockActual() == null || insumo.getStockActual().compareTo(cantidadRequeridaTotal) < 0) {
+                        throw new IllegalArgumentException("Stock insuficiente en el insumo: " + insumo.getNombre());
                     }
+
                     insumo.setStockActual(insumo.getStockActual().subtract(cantidadRequeridaTotal));
                     inventarioRepository.save(insumo);
                 }
             }
 
-            // 2. Construir el detalle utilizando la venta ya guardada (con su ID oficial)
+            // 2. Construir e insertar detalle de venta
             DetalleVenta detalle = DetalleVenta.builder()
                     .venta(ventaGuardada)
                     .producto(producto)
@@ -105,16 +133,24 @@ public class VentaService {
                     .subtotal(subtotal)
                     .build();
 
-             // Agregar a la colección rastreada por Hibernate directamente
             ventaGuardada.getDetalles().add(detalle);
         }
 
-        // 3. Asignar los detalles y actualizar el total definitivo
+        // 3. Actualizar total definitivo de la venta
         ventaGuardada.setTotal(totalVenta);
         ventaRepository.save(ventaGuardada);
 
-        if (ventaGuardada.getCliente() != null && ventaGuardada.getCliente().getCorreoElectronico() != null && !ventaGuardada.getCliente().getCorreoElectronico().isEmpty()) {
-            String tipoTicket = ventaGuardada.getEstado() == EstadoVenta.PAGADA ? "Recibo de Compra" : "Cargo Pendiente (Deuda)";
+        // 4. Salida de cubiertos: solo si el cajero activo el switch. Si no, se quedan en la cafeteria.
+        if (Boolean.TRUE.equals(request.llevaCubiertos())) {
+            if (request.cubiertos() == null) {
+                throw new IllegalArgumentException("Indica el codigo de empleado, el area y los cubiertos que se lleva.");
+            }
+            utensilioService.registrarPrestamo(request.cubiertos(), ventaGuardada, cliente);
+        }
+
+        // Notificación por correo
+        if (ventaGuardada.getCliente() != null && ventaGuardada.getCliente().getEmail() != null && !ventaGuardada.getCliente().getEmail().trim().isEmpty()) {
+            String tipoTicket = ventaGuardada.getEstado() == EstadoVenta.PAGADO ? "Recibo de Compra" : "Cargo Pendiente (Deuda)";
             String asunto = tipoTicket + " - Cafetería";
             String mensajeTicket = String.format(
                     "Hola %s.\nEl total de tu orden es: $%s.\n\n¡Gracias por tu preferencia!",
@@ -123,7 +159,7 @@ public class VentaService {
             );
             
             try {
-                emailService.enviarCorreo(ventaGuardada.getCliente().getCorreoElectronico(), asunto, mensajeTicket);
+                emailService.enviarCorreo(ventaGuardada.getCliente().getEmail(), asunto, mensajeTicket);
             } catch (Exception e) {
                 System.err.println("No se pudo enviar el ticket por correo: " + e.getMessage());
             }
@@ -148,7 +184,6 @@ public class VentaService {
 
     @Transactional(readOnly = true)
     public List<VentaResponseRecord> obtenerDeudasPorCliente(Long clienteId) {
-        // CORRECCIÓN APLICADA: findByClientePnIdAndEstado
         return ventaRepository.findByClientePnIdAndEstado(clienteId, EstadoVenta.PENDIENTE)
                 .stream()
                 .map(VentaResponseRecord::new)
@@ -160,7 +195,7 @@ public class VentaService {
         Venta venta = ventaRepository.findById(ventaId)
                 .orElseThrow(() -> new EntityNotFoundException("Venta no encontrada con id: " + ventaId));
 
-        if (venta.getEstado() == EstadoVenta.PAGADA) {
+        if (venta.getEstado() == EstadoVenta.PAGADO) {
             throw new IllegalStateException("Esta cuenta ya se encuentra liquidada.");
         }
 
@@ -168,20 +203,19 @@ public class VentaService {
             throw new IllegalArgumentException("El monto a cobrar debe ser mayor a cero.");
         }
 
-        if (montoIngresado.compareTo(venta.getTotal()) > 0) {
+        BigDecimal saldo = venta.getSaldoPendiente();
+        if (montoIngresado.compareTo(saldo) > 0) {
             throw new IllegalArgumentException(
-                String.format("Monto inválido. El ticket adeuda $%s, no puedes abonar $%s.", 
-                venta.getTotal(), montoIngresado)
+                String.format("Monto inválido. El ticket adeuda $%s, no puedes abonar $%s.",
+                saldo, montoIngresado)
             );
         }
 
-        // Restar el abono al total del ticket para llevar el control del saldo
-        BigDecimal saldoRestante = venta.getTotal().subtract(montoIngresado);
-        venta.setTotal(saldoRestante);
-
-        // Si el saldo restante llega a 0, el ticket por fin se marca como PAGADO
-        if (saldoRestante.compareTo(BigDecimal.ZERO) == 0) {
-            venta.setEstado(EstadoVenta.PAGADA);
+        // Se acumula el abono; si cubre el saldo el ticket queda PAGADO
+        BigDecimal abonadoPrevio = venta.getMontoAbonado() != null ? venta.getMontoAbonado() : BigDecimal.ZERO;
+        venta.setMontoAbonado(abonadoPrevio.add(montoIngresado));
+        if (venta.getSaldoPendiente().compareTo(BigDecimal.ZERO) == 0) {
+            venta.setEstado(EstadoVenta.PAGADO);
         }
         
         Venta ventaActualizada = ventaRepository.save(venta);
@@ -189,7 +223,6 @@ public class VentaService {
         Turno turnoActivo = turnoRepository.findByEstaActivoTrue()
                 .orElseThrow(() -> new IllegalStateException("Debes abrir un turno en caja antes de realizar cobros."));
 
-        // CORRECCIÓN APLICADA: ventaActualizada.getPnId()
         MovimientoCaja ingresoDeuda = MovimientoCaja.builder()
                 .turno(turnoActivo)
                 .fechaHora(LocalDateTime.now())
@@ -202,16 +235,17 @@ public class VentaService {
         movimientoCajaRepository.save(ingresoDeuda);
         turnoActivo.setTotalIngresos(turnoActivo.getTotalIngresos().add(montoIngresado));
 
-        if (ventaActualizada.getCliente() != null && ventaActualizada.getCliente().getCorreoElectronico() != null && !ventaActualizada.getCliente().getCorreoElectronico().isEmpty()) {
+        if (ventaActualizada.getCliente() != null && ventaActualizada.getCliente().getEmail() != null && !ventaActualizada.getCliente().getEmail().trim().isEmpty()) {
             String asunto = "Pago Recibido - Cafetería";
             String mensajePago = String.format(
-                    "Hola %s.\nHemos registrado la liquidación de tu ticket por $%s.\n\n¡Tu cuenta está al corriente, gracias!",
+                    "Hola %s.\nHemos registrado la liquidación por $%s para tu ticket #%s.\n\n¡Tu cuenta está al corriente, gracias!",
                     ventaActualizada.getCliente().getNombre(),
-                    ventaActualizada.getTotal()
+                    montoIngresado,
+                    ventaActualizada.getPnId()
             );
             
             try {
-                emailService.enviarCorreo(ventaActualizada.getCliente().getCorreoElectronico(), asunto, mensajePago);
+                emailService.enviarCorreo(ventaActualizada.getCliente().getEmail(), asunto, mensajePago);
             } catch (Exception e) {
                 System.err.println("No se pudo enviar el recibo por correo: " + e.getMessage());
             }
@@ -233,10 +267,9 @@ public class VentaService {
 
         for (Venta ticket : tickets) {
             if (ticket.getEstado() != EstadoVenta.PENDIENTE) {
-                // CORRECCIÓN APLICADA: ticket.getPnId()
                 throw new IllegalStateException("El ticket #" + ticket.getPnId() + " ya se encuentra liquidado.");
             }
-            totalAdeudado = totalAdeudado.add(ticket.getTotal());
+            totalAdeudado = totalAdeudado.add(ticket.getSaldoPendiente());
         }
 
         if (montoIngresado.compareTo(totalAdeudado) != 0) {
@@ -246,7 +279,10 @@ public class VentaService {
             );
         }
 
-        tickets.forEach(ticket -> ticket.setEstado(EstadoVenta.PAGADA));
+        tickets.forEach(ticket -> {
+            ticket.setMontoAbonado(ticket.getTotal());
+            ticket.setEstado(EstadoVenta.PAGADO);
+        });
         List<Venta> ventasActualizadas = ventaRepository.saveAll(tickets);
 
         Turno turnoActivo = turnoRepository.findByEstaActivoTrue()
@@ -263,7 +299,7 @@ public class VentaService {
         movimientoCajaRepository.save(ingresoMasivo);
         turnoActivo.setTotalIngresos(turnoActivo.getTotalIngresos().add(montoIngresado));
 
-        if (cliente != null && cliente.getCorreoElectronico() != null && !cliente.getCorreoElectronico().isEmpty()) {
+        if (cliente != null && cliente.getEmail() != null && !cliente.getEmail().trim().isEmpty()) {
             String asunto = "Pago Masivo Recibido - Cafetería";
             String mensajePago = String.format(
                     "Hola %s.\nHemos registrado la liquidación de %d tickets por un total de $%s.\n\n¡Tu cuenta está al corriente, gracias!",
@@ -273,7 +309,7 @@ public class VentaService {
             );
             
             try {
-                emailService.enviarCorreo(cliente.getCorreoElectronico(), asunto, mensajePago);
+                emailService.enviarCorreo(cliente.getEmail(), asunto, mensajePago);
             } catch (Exception e) {
                 System.err.println("No se pudo enviar el recibo masivo por correo: " + e.getMessage());
             }

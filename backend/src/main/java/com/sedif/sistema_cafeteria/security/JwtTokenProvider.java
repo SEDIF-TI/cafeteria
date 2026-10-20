@@ -28,6 +28,8 @@ public class JwtTokenProvider {
 
     public static final String CLAIM_ROL = "rol";
     public static final String CLAIM_NOMBRE = "nombre";
+    public static final String CLAIM_TIPO = "tipo";
+    public static final String TIPO_CLIENTE = "CLIENTE";
 
     private final SecretKey claveFirma;
     private final long vigenciaMs;
@@ -56,9 +58,34 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    /**
+     * Token para el apartado del cliente. El subject es el numero de control
+     * (unico) y el claim {@code tipo=CLIENTE} permite al filtro distinguirlo del
+     * token del personal sin confundir ambas identidades.
+     */
+    public String generarTokenCliente(com.sedif.sistema_cafeteria.core.cliente.Cliente cliente) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put(CLAIM_TIPO, TIPO_CLIENTE);
+        claims.put(CLAIM_NOMBRE, cliente.getNombre());
+
+        Date ahora = new Date();
+        return Jwts.builder()
+                .claims(claims)
+                .subject(cliente.getNumeroControlEmpleado())
+                .issuedAt(ahora)
+                .expiration(new Date(ahora.getTime() + vigenciaMs))
+                .signWith(claveFirma)
+                .compact();
+    }
+
     public String extraerIdentificador(String token) {
         Claims claims = parsear(token);
         return claims != null ? claims.getSubject() : null;
+    }
+
+    public String extraerTipo(String token) {
+        Claims claims = parsear(token);
+        return claims != null ? claims.get(CLAIM_TIPO, String.class) : null;
     }
 
     public boolean isTokenValido(String token) {

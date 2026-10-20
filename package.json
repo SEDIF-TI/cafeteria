@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@mui/icons-material": "^9.4.0",
-    "qrcode.react": "^4.2.0"
+    "qrcode.react": "^4.2.0",
+    "react-qr-code": "^2.2.0"
   }
 }

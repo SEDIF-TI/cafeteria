@@ -7,6 +7,7 @@ import com.sedif.sistema_cafeteria.core.cliente.Cliente;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.annotation.Schedules;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +23,11 @@ public class RecordatorioDeudoresService {
     private final VentaRepository ventaRepository;
     private final EmailService emailService;
 
-    @Scheduled(cron = "0 0 10 15,L * ?")
+    // Se separan los CRON para ejecutar el día 15 y el último día del mes (L) a las 10:00 AM
+    @Schedules({
+        @Scheduled(cron = "0 0 10 15 * ?"),
+        @Scheduled(cron = "0 0 10 L * ?")
+    })
     @Transactional(readOnly = true)
     public void notificarCuentasPendientes() {
         
@@ -31,19 +36,18 @@ public class RecordatorioDeudoresService {
                 .filter(v -> v.getEstado() == EstadoVenta.PENDIENTE && v.getCliente() != null)
                 .toList();
 
-        // 2. Agruparlas por cliente para no enviar spam
+        // 2. Agruparlas por cliente usando lambda para evitar advertencias de nulos
         Map<Cliente, List<Venta>> deudasPorCliente = deudas.stream()
-                .collect(Collectors.groupingBy(Venta::getCliente));
+                .collect(Collectors.groupingBy(v -> v.getCliente()));
 
         // 3. Procesar y enviar
         deudasPorCliente.forEach((cliente, tickets) -> {
             
-            // CORRECCIÓN: Se usa getCorreoElectronico() en lugar de getEmail()
-            if (cliente.getCorreoElectronico() != null && !cliente.getCorreoElectronico().isEmpty()) {
+            if (cliente.getEmail() != null && !cliente.getEmail().isEmpty()) {
                 
                 BigDecimal totalAdeudo = tickets.stream()
-                        .map(Venta::getTotal)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                        .map(v -> v.getTotal())
+                        .reduce(BigDecimal.ZERO, (a, b) -> a.add(b));
 
                 String mensaje = String.format(
                         "☕ *Hola %s, tu cafetería te saluda*\n\n" +
@@ -54,8 +58,7 @@ public class RecordatorioDeudoresService {
                 );
 
                 try {
-                    // CORRECCIÓN: Se usa enviarCorreo() y getCorreoElectronico()
-                    emailService.enviarCorreo(cliente.getCorreoElectronico(), "Recordatorio de Deuda", mensaje);
+                    emailService.enviarCorreo(cliente.getEmail(), "Recordatorio de Deuda", mensaje);
                 } catch (Exception e) {
                     System.err.println("Fallo al enviar a " + cliente.getNombre() + ": " + e.getMessage());
                 }
