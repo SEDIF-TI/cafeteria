@@ -58,6 +58,16 @@ public class VentaService {
             throw new IllegalArgumentException("La venta debe contener al menos un producto.");
         }
 
+        // Las ventas en efectivo entran a la caja: exigen un turno abierto.
+        // Los demas metodos (tarjeta, transferencia, credito) no mueven efectivo.
+        boolean esEfectivo = "EFECTIVO".equalsIgnoreCase(request.metodoPago());
+        Turno turnoActivo = null;
+        if (esEfectivo) {
+            turnoActivo = turnoRepository.findByEstaActivoTrue()
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Debes abrir un turno en caja antes de cobrar en efectivo."));
+        }
+
         // 1. Crear e insertar la venta con total inicial en cero
         Venta venta = Venta.builder()
                 .usuario(usuario)
@@ -139,6 +149,21 @@ public class VentaService {
         // 3. Actualizar total definitivo de la venta
         ventaGuardada.setTotal(totalVenta);
         ventaRepository.save(ventaGuardada);
+
+        // 3b. Registrar el ingreso en la caja cuando el cobro fue en efectivo.
+        if (turnoActivo != null) {
+            movimientoCajaRepository.save(MovimientoCaja.builder()
+                    .turno(turnoActivo)
+                    .fechaHora(LocalDateTime.now())
+                    .tipo("INGRESO_VENTA")
+                    .monto(totalVenta)
+                    .descripcion("Venta en efectivo - Ticket #" + ventaGuardada.getPnId())
+                    .ventaOrigenId(ventaGuardada.getPnId())
+                    .build());
+            turnoActivo.setTotalIngresos(
+                    (turnoActivo.getTotalIngresos() != null ? turnoActivo.getTotalIngresos() : BigDecimal.ZERO)
+                            .add(totalVenta));
+        }
 
         // 4. Salida de cubiertos: solo si el cajero activo el switch. Si no, se quedan en la cafeteria.
         if (Boolean.TRUE.equals(request.llevaCubiertos())) {

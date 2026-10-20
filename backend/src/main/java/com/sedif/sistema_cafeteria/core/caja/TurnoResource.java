@@ -3,8 +3,10 @@ package com.sedif.sistema_cafeteria.core.caja;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/turnos")
@@ -15,13 +17,26 @@ public class TurnoResource {
 
     @PostMapping("/abrir")
     public ResponseEntity<TurnoResponse> abrirTurno(
-            @RequestBody @Valid AperturaTurnoRequest request,
-            Authentication authentication) { 
-        
-        // Extraemos el "subject" del JWT (generalmente el email o nombre de usuario)
-        String usuarioLogueado = authentication.getName();
-        
-        Turno turno = turnoService.abrirTurno(usuarioLogueado, request.fondoCaja());
-        return ResponseEntity.ok(new TurnoResponse(turno));
+            @RequestBody @Valid AperturaTurnoRequest request, Authentication authentication) {
+        return ResponseEntity.ok(turnoService.abrirTurno(authentication.getName(), request.fondoCaja()));
+    }
+
+    @PostMapping("/cerrar")
+    public ResponseEntity<TurnoResponse> cerrarTurno(@RequestBody @Valid CierreTurnoRequest request) {
+        return ResponseEntity.ok(turnoService.cerrarTurno(request.totalContado()));
+    }
+
+    /** Turno abierto actual, o 204 si no hay ninguno. */
+    @GetMapping("/activo")
+    public ResponseEntity<TurnoResponse> turnoActivo() {
+        return turnoService.obtenerTurnoActivo()
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Historial de cortes (turnos cerrados). */
+    @GetMapping
+    public ResponseEntity<List<TurnoResponse>> historial() {
+        return ResponseEntity.ok(turnoService.historialCortes());
     }
 }

@@ -25,6 +25,7 @@ import InventoryIcon from '@mui/icons-material/Inventory';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import GroupIcon from '@mui/icons-material/Group';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import PeopleIcon from '@mui/icons-material/People';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
@@ -60,7 +61,8 @@ export default function MainLayout() {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Categorías', icon: <CategoryIcon />, path: '/dashboard/categorias' },
     { text: 'Menú de Cafetería', icon: <RestaurantMenuIcon />, path: '/dashboard/menu' },
-    { text: 'Ventas y Caja', icon: <PointOfSaleIcon />, path: '/dashboard/ventas' },
+    { text: 'Punto de Venta', icon: <PointOfSaleIcon />, path: '/dashboard/ventas' },
+    { text: 'Caja y Turnos', icon: <AccountBalanceWalletIcon />, path: '/dashboard/caja' },
     { text: 'Historial de Ventas', icon: <ReceiptLongIcon />, path: '/dashboard/historial-ventas' },
     { text: 'Inventario (Prod. Terminados)', icon: <InventoryIcon />, path: '/dashboard/inventario' },
     { text: 'Utensilios (Cubiertos)', icon: <RestaurantIcon />, path: '/dashboard/utensilios' },

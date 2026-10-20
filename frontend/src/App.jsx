@@ -21,6 +21,7 @@ import ClienteLogin from "./pages/cliente/ClienteLogin";
 import MiApartado from "./pages/cliente/MiApartado";
 import HistorialVentas from "./pages/Ventas/HistorialVentas";
 import Clientes from "./pages/Clientes/Clientes";
+import Caja from "./pages/Caja/Caja";
 import CambiarPasswordCliente from "./pages/cliente/CambiarPasswordCliente";
 import RecuperarPasswordCliente from "./pages/cliente/RecuperarPasswordCliente";
 import RegistroClientePublico from "./pages/registro-cliente/RegistroClientePublico";
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="categorias" element={<Categorias />} />
             <Route path="menu" element={<MenuCafeteria />} />
             <Route path="ventas" element={<Ventas />} />
+            <Route path="caja" element={<Caja />} />
             <Route path="historial-ventas" element={<HistorialVentas />} />
             <Route path="clientes" element={<Clientes />} />
             <Route path="inventario" element={<Inventario />} />

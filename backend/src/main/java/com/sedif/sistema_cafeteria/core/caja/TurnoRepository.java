@@ -9,4 +9,7 @@ public interface TurnoRepository extends JpaRepository<Turno, Long> {
     
     // Devuelve el turno que esté actualmente abierto (solo debería haber uno)
     Optional<Turno> findByEstaActivoTrue();
+
+    // Historial de cortes de caja, el más reciente primero
+    java.util.List<Turno> findByEstaActivoFalseOrderByFechaHoraCierreDesc();
 }

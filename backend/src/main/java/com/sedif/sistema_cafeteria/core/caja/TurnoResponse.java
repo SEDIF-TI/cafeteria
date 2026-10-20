@@ -8,19 +8,32 @@ public record TurnoResponse(
         Long cajeroId,
         String nombreCajero,
         LocalDateTime fechaHoraApertura,
+        LocalDateTime fechaHoraCierre,
         BigDecimal fondoInicial,
         BigDecimal totalIngresos,
+        BigDecimal totalEsperado,
+        BigDecimal totalContado,
+        BigDecimal diferencia,
         Boolean estaActivo
 ) {
     public TurnoResponse(Turno turno) {
         this(
                 turno.getId(),
-                turno.getCajero().getId(),
-                turno.getCajero().getNombre(), // Asumiendo que tu entidad Usuario tiene getNombre()
+                turno.getCajero() != null ? turno.getCajero().getId() : null,
+                turno.getCajero() != null ? turno.getCajero().getNombre() : null,
                 turno.getFechaHoraApertura(),
+                turno.getFechaHoraCierre(),
                 turno.getFondoInicial(),
                 turno.getTotalIngresos(),
+                // Esperado en caja = fondo inicial + ingresos del turno
+                nz(turno.getFondoInicial()).add(nz(turno.getTotalIngresos())),
+                turno.getTotalFisicoCierre(),
+                turno.getDiferencia(),
                 turno.getEstaActivo()
         );
+    }
+
+    private static BigDecimal nz(BigDecimal v) {
+        return v != null ? v : BigDecimal.ZERO;
     }
 }
