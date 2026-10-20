@@ -23,8 +23,10 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import PaymentIcon from '@mui/icons-material/Payment';
+import { useFeedback } from '../../components/FeedbackProvider';
 
 export default function Deudores() {
+  const { notificar, cargar, finalizarCarga } = useFeedback();
   const [deudores, setDeudores] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [modalAbono, setModalAbono] = useState(false);
@@ -79,11 +81,12 @@ export default function Deudores() {
 
     // Validación frontal Solo bloqueamos si intentan abonar MÁS de lo que deben
     if (abono > deudorSeleccionado.totalDeuda) {
-      alert(`No puedes abonar más del adeudo total ($${deudorSeleccionado.totalDeuda.toFixed(2)})`);
+      notificar(`No puedes abonar más del adeudo total ($${deudorSeleccionado.totalDeuda.toFixed(2)})`, 'warning');
       return;
     }
 
     setLoadingPago(true);
+    cargar('Registrando el pago...');
     try {
       await api.put(`/ventas/${deudorSeleccionado.id}/liquidar`, {
         montoIngresado: abono
@@ -98,12 +101,14 @@ export default function Deudores() {
       }).filter(d => d.totalDeuda > 0)); // Si la deuda llega a 0, desaparece de la lista
 
       setModalAbono(false);
+      notificar('Pago registrado correctamente.', 'success');
     } catch (error) {
       console.error('Error al procesar el pago:', error);
       const mensajeError = error.response?.data?.message || 'Error al procesar el pago con el servidor.';
-      alert(mensajeError);
+      notificar(mensajeError, 'error');
     } finally {
       setLoadingPago(false);
+      finalizarCarga();
     }
   };
 

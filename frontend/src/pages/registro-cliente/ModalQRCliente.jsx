@@ -2,16 +2,18 @@ import React from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Box, Button, Typography } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
 import QRCode from 'react-qr-code';
+import { useFeedback } from '../../components/FeedbackProvider';
 
 export default function ModalQRCliente({ open, onClose }) {
+  const { notificar } = useFeedback();
   const urlRegistro = `${import.meta.env.VITE_PUBLIC_URL || window.location.origin}/registro-cliente`;
 
   const handleImprimir = () => {
     // Abrir una ventana nueva limpia dedicada exclusivamente a la impresión
     const ventanaImpresion = window.open('', '_blank', 'width=800,height=900');
-    
+
     if (!ventanaImpresion) {
-      alert('Por favor permite las ventanas emergentes (pop-ups) para imprimir el QR.');
+      notificar('Por favor permite las ventanas emergentes (pop-ups) para imprimir el QR.', 'warning');
       return;
     }
 
@@ -105,7 +107,7 @@ export default function ModalQRCliente({ open, onClose }) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <Box sx={{ p: 2 }}>
-        <DialogTitle sx={{ textAlign: 'center', fontWeight: '900', fontSize: '1.6rem', pb: 0.5, color: '#691c32' }}>
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: '900', fontSize: '1.6rem', pb: 0.5, color: 'primary.main' }}>
           Registro de Cliente
         </DialogTitle>
         <Typography variant="subtitle1" textAlign="center" fontWeight="bold" color="text.secondary" sx={{ mb: 2 }}>
@@ -147,7 +149,7 @@ export default function ModalQRCliente({ open, onClose }) {
             onClick={handleImprimir} 
             variant="contained" 
             startIcon={<PrintIcon />}
-            sx={{ backgroundColor: '#691c32', fontWeight: 'bold', '&:hover': { backgroundColor: '#4a1323' } }}
+            sx={{ backgroundColor: 'primary.main', fontWeight: 'bold', '&:hover': { backgroundColor: 'primary.dark' } }}
           >
             Imprimir QR
           </Button>

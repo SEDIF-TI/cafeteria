@@ -10,8 +10,10 @@ import EditIcon from '@mui/icons-material/Edit';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import BuildIcon from '@mui/icons-material/Build';
 import api from '../../api/axiosClient';
+import { useFeedback } from '../../components/FeedbackProvider';
 
 export default function Inventario() {
+  const { notificar } = useFeedback();
   const [inventario, setInventario] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -201,7 +203,7 @@ export default function Inventario() {
     const extraVal = parseFloat(stockExtra);
 
     if (isNaN(extraVal) || extraVal <= 0) {
-      alert("Por favor ingresa una cantidad válida y mayor a cero.");
+      notificar("Por favor ingresa una cantidad válida y mayor a cero.", 'warning');
       return;
     }
 
@@ -211,7 +213,7 @@ export default function Inventario() {
     const detalles = obtenerDetallesUnidad(productoSeleccionado);
 
     if (detalles.esPieza && !Number.isInteger(extraVal)) {
-      alert("Para productos en Venta Directa o Piezas solo se permiten números enteros.");
+      notificar("Para productos en Venta Directa o Piezas solo se permiten números enteros.", 'warning');
       return;
     }
 
@@ -237,10 +239,11 @@ export default function Inventario() {
       setProductoSeleccionado(null);
       setStockExtra('');
       cargarDatos();
+      notificar('Stock agregado correctamente.', 'success');
     } catch (error) {
       const errorData = error.response?.data;
       const msjValidacion = errorData?.message || JSON.stringify(errorData) || error.message;
-      alert(`El servidor rechazó la petición:\n${msjValidacion}`);
+      notificar(`El servidor rechazó la petición: ${msjValidacion}`, 'error');
     }
   };
 
@@ -250,14 +253,14 @@ export default function Inventario() {
     const nuevaCantidadVal = parseFloat(nuevoStockAjuste);
 
     if (isNaN(nuevaCantidadVal) || nuevaCantidadVal < 0) {
-      alert("Por favor ingresa una cantidad válida (mayor o igual a cero).");
+      notificar("Por favor ingresa una cantidad válida (mayor o igual a cero).", 'warning');
       return;
     }
 
     const detalles = obtenerDetallesUnidad(productoAjuste);
 
     if (detalles.esPieza && !Number.isInteger(nuevaCantidadVal)) {
-      alert("Para productos en Venta Directa o Piezas solo se permiten números enteros.");
+      notificar("Para productos en Venta Directa o Piezas solo se permiten números enteros.", 'warning');
       return;
     }
 
@@ -275,16 +278,17 @@ export default function Inventario() {
       setNuevoStockAjuste('');
       setMotivoAjuste('');
       cargarDatos();
+      notificar('Inventario ajustado correctamente.', 'success');
     } catch (error) {
       const errorData = error.response?.data;
       const msjValidacion = errorData?.message || JSON.stringify(errorData) || error.message;
-      alert(`Error al ajustar el inventario:\n${msjValidacion}`);
+      notificar(`Error al ajustar el inventario: ${msjValidacion}`, 'error');
     }
   };
 
   const handleGuardar = async () => {
     if (!formData.nombre.trim()) {
-      alert("El nombre del producto es obligatorio.");
+      notificar("El nombre del producto es obligatorio.", 'warning');
       return;
     }
 
@@ -294,17 +298,17 @@ export default function Inventario() {
     let costoVal = parseFloat(formData.costo);
 
     if (isNaN(cantidadVal) || cantidadVal < 0) {
-      alert("El stock inicial debe ser un número mayor o igual a 0.");
+      notificar("El stock inicial debe ser un número mayor o igual a 0.", 'warning');
       return;
     }
 
     if (isNaN(minimoVal) || minimoVal < 0) {
-      alert("El stock mínimo debe ser un número mayor o igual a 0.");
+      notificar("El stock mínimo debe ser un número mayor o igual a 0.", 'warning');
       return;
     }
 
     if (formData.esDirecto && (isNaN(precioVal) || precioVal < 0)) {
-      alert("El precio de venta debe ser un valor válido mayor o igual a 0.");
+      notificar("El precio de venta debe ser un valor válido mayor o igual a 0.", 'warning');
       return;
     }
 
@@ -315,7 +319,7 @@ export default function Inventario() {
     const esPieza = formData.esDirecto || formData.unidadVisual === 'Piezas';
 
     if (esPieza && (!Number.isInteger(cantidadVal) || !Number.isInteger(minimoVal))) {
-      alert("Los productos registrados por Pieza / Venta Directa deben ser números enteros.");
+      notificar("Los productos registrados por Pieza / Venta Directa deben ser números enteros.", 'warning');
       return;
     }
 
@@ -372,10 +376,11 @@ export default function Inventario() {
       setOpenDialog(false);
       setEditId(null);
       cargarDatos();
+      notificar(editId ? 'Producto actualizado correctamente.' : 'Producto creado correctamente.', 'success');
     } catch (error) {
       const errorData = error.response?.data;
       const msjValidacion = errorData?.message || JSON.stringify(errorData) || error.message;
-      alert(`Error al guardar:\n${msjValidacion}`);
+      notificar(`Error al guardar: ${msjValidacion}`, 'error');
     }
   };
 

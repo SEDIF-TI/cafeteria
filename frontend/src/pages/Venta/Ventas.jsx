@@ -15,8 +15,10 @@ import QrCodeIcon from '@mui/icons-material/QrCode'; // Importación agregada
 
 import ModalQRCliente from '../registro-cliente/ModalQRCliente';
 import api from '../../api/axiosClient';
+import { useFeedback } from '../../components/FeedbackProvider';
 
 export default function Ventas() {
+  const { notificar, cargar, finalizarCarga } = useFeedback();
   const [productos, setProductos] = useState([]);
   const [carrito, setCarrito] = useState([]);
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
@@ -73,7 +75,7 @@ export default function Ventas() {
 
     if (existe) {
       if (existe.cantidad + 1 > stockDisp) {
-        alert(`Stock insuficiente. Disponibilidad máxima estimada: ${stockDisp} porciones.`);
+        notificar(`Stock insuficiente. Disponibilidad máxima estimada: ${stockDisp} porciones.`, 'warning');
         return;
       }
       setCarrito(
@@ -83,7 +85,7 @@ export default function Ventas() {
       );
     } else {
       if (stockDisp < 1) {
-        alert('Este producto no cuenta con insumos/stock suficiente para prepararse.');
+        notificar('Este producto no cuenta con insumos/stock suficiente para prepararse.', 'warning');
         return;
       }
       setCarrito([
@@ -126,17 +128,17 @@ export default function Ventas() {
 
     if (metodoPago === 'EFECTIVO') {
       if (isNaN(montoNum) || montoNum < 0) {
-        alert('Ingresa un monto recibido válido y mayor o igual a cero.');
+        notificar('Ingresa un monto recibido válido y mayor o igual a cero.', 'warning');
         return;
       }
       if (montoNum < totalVenta) {
-        alert('El monto ingresado es menor al total de la compra.');
+        notificar('El monto ingresado es menor al total de la compra.', 'warning');
         return;
       }
     }
 
     if (metodoPago === 'DEUDA' && !clienteSeleccionado) {
-      alert('Debes seleccionar un cliente obligatoriamente para registrar una venta a crédito/deuda.');
+      notificar('Debes seleccionar un cliente obligatoriamente para registrar una venta a crédito/deuda.', 'warning');
       return;
     }
 
@@ -146,16 +148,17 @@ export default function Ventas() {
 
     if (llevaCubiertos) {
       if (!codigoEmpleado.trim() || !areaDestino.trim()) {
-        alert('Para llevarse cubiertos indica el código de empleado y el área destino.');
+        notificar('Para llevarse cubiertos indica el código de empleado y el área destino.', 'warning');
         return;
       }
       if (utensiliosSalida.length === 0) {
-        alert('Indica al menos un cubierto y su cantidad.');
+        notificar('Indica al menos un cubierto y su cantidad.', 'warning');
         return;
       }
     }
 
     setLoading(true);
+    cargar('Registrando la venta...');
 
     let usuarioSesionId = 4;
     try {
@@ -192,7 +195,6 @@ export default function Ventas() {
     try {
       await api.post('/ventas', payload);
 
-      alert('¡Venta realizada con éxito!');
       resetCubiertos();
       setCarrito([]);
       setMontoRecibido('');
@@ -200,13 +202,15 @@ export default function Ventas() {
       setMetodoPago('EFECTIVO');
       setOpenCobroDialog(false);
       cargarCatalogos();
+      notificar('¡Venta realizada con éxito!', 'success');
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 
-                       (typeof error.response?.data === 'string' ? error.response.data : null) || 
+      const errorMsg = error.response?.data?.message ||
+                       (typeof error.response?.data === 'string' ? error.response.data : null) ||
                        'Ocurrió un error al procesar la venta.';
-      alert(`Error en caja:\n${errorMsg}`);
+      notificar(errorMsg, 'error');
     } finally {
       setLoading(false);
+      finalizarCarga();
     }
   };
 

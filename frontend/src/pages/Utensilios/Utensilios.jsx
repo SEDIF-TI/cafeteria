@@ -10,6 +10,7 @@ import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import api from '../../api/axiosClient';
+import { useFeedback } from '../../components/FeedbackProvider';
 
 const COLOR_ESTADO = {
   PRESTADO: 'warning',
@@ -24,6 +25,7 @@ const mensajeError = (err, porDefecto) =>
 const formatearFecha = (f) => (f ? new Date(f).toLocaleString('es-MX') : '—');
 
 export default function Utensilios() {
+  const { notificar, cargar, finalizarCarga } = useFeedback();
   const [tab, setTab] = useState(0);
   const [utensilios, setUtensilios] = useState([]);
   const [prestamos, setPrestamos] = useState([]);
@@ -39,6 +41,10 @@ export default function Utensilios() {
   // Devolución (total o parcial)
   const [prestamoDevolucion, setPrestamoDevolucion] = useState(null);
   const [cantDevolucion, setCantDevolucion] = useState({});
+
+  // Marcar como perdido (reemplaza el window.prompt nativo)
+  const [prestamoPerdido, setPrestamoPerdido] = useState(null);
+  const [obsPerdido, setObsPerdido] = useState('');
 
   const cargarUtensilios = async () => {
     try {
@@ -82,8 +88,9 @@ export default function Utensilios() {
       }
       setOpenUtensilio(false);
       cargarUtensilios();
+      notificar(editId ? 'Utensilio actualizado.' : 'Utensilio registrado.', 'success');
     } catch (err) {
-      alert(mensajeError(err, 'No se pudo guardar el utensilio.'));
+      notificar(mensajeError(err, 'No se pudo guardar el utensilio.'), 'error');
     }
   };
 
@@ -92,7 +99,7 @@ export default function Utensilios() {
       await api.patch(`/utensilios/${id}/estado`);
       cargarUtensilios();
     } catch (err) {
-      alert(mensajeError(err, 'No se pudo cambiar el estado.'));
+      notificar(mensajeError(err, 'No se pudo cambiar el estado.'), 'error');
     }
   };
 
@@ -108,28 +115,40 @@ export default function Utensilios() {
       .filter(([, c]) => Number(c) > 0)
       .map(([utensilioId, c]) => ({ utensilioId: Number(utensilioId), cantidad: Number(c) }));
     if (items.length === 0) {
-      alert('Indica al menos una pieza a devolver.');
+      notificar('Indica al menos una pieza a devolver.', 'warning');
       return;
     }
+    cargar('Registrando la devolución...');
     try {
       await api.patch(`/prestamos-utensilios/${prestamoDevolucion.id}/devolver`, { items });
       setPrestamoDevolucion(null);
       cargarPrestamos();
       cargarUtensilios();
+      notificar('Devolución registrada.', 'success');
     } catch (err) {
-      alert(mensajeError(err, 'No se pudo registrar la devolución.'));
+      notificar(mensajeError(err, 'No se pudo registrar la devolución.'), 'error');
+    } finally {
+      finalizarCarga();
     }
   };
 
-  const marcarPerdido = async (p) => {
-    const observaciones = window.prompt('¿Marcar las piezas pendientes como perdidas? Escribe una observación (opcional):');
-    if (observaciones === null) return;
+  const abrirPerdido = (p) => {
+    setObsPerdido('');
+    setPrestamoPerdido(p);
+  };
+
+  const confirmarPerdido = async () => {
+    cargar('Actualizando el préstamo...');
     try {
-      await api.patch(`/prestamos-utensilios/${p.id}/perdido`, { observaciones });
+      await api.patch(`/prestamos-utensilios/${prestamoPerdido.id}/perdido`, { observaciones: obsPerdido });
+      setPrestamoPerdido(null);
       cargarPrestamos();
       cargarUtensilios();
+      notificar('Piezas marcadas como perdidas.', 'success');
     } catch (err) {
-      alert(mensajeError(err, 'No se pudo marcar como perdido.'));
+      notificar(mensajeError(err, 'No se pudo marcar como perdido.'), 'error');
+    } finally {
+      finalizarCarga();
     }
   };
 
@@ -251,7 +270,7 @@ export default function Utensilios() {
                               <IconButton color="success" onClick={() => abrirDevolucion(p)}><AssignmentReturnIcon /></IconButton>
                             </Tooltip>
                             <Tooltip title="Marcar como perdido">
-                              <IconButton color="error" onClick={() => marcarPerdido(p)}><ReportProblemIcon /></IconButton>
+                              <IconButton color="error" onClick={() => abrirPerdido(p)}><ReportProblemIcon /></IconButton>
                             </Tooltip>
                           </>
                         )}
@@ -328,6 +347,28 @@ export default function Utensilios() {
         <DialogActions>
           <Button onClick={() => setPrestamoDevolucion(null)}>Cancelar</Button>
           <Button variant="contained" color="success" onClick={confirmarDevolucion}>Confirmar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diálogo para marcar como perdido (reemplaza el window.prompt nativo) */}
+      <Dialog open={!!prestamoPerdido} onClose={() => setPrestamoPerdido(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold', color: 'error.main' }}>Marcar piezas como perdidas</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Las piezas pendientes de este préstamo se marcarán como perdidas y no volverán al stock.
+          </Alert>
+          <TextField
+            label="Observación (opcional)"
+            value={obsPerdido}
+            onChange={(e) => setObsPerdido(e.target.value)}
+            fullWidth
+            multiline
+            minRows={2}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPrestamoPerdido(null)}>Cancelar</Button>
+          <Button variant="contained" color="error" onClick={confirmarPerdido}>Marcar como perdido</Button>
         </DialogActions>
       </Dialog>
     </Container>

@@ -6,6 +6,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 
 // Importamos el tema que configuraste previamente
 import { theme } from './theme/theme.js';
+import { FeedbackProvider } from './components/FeedbackProvider.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -13,7 +14,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <ThemeProvider theme={theme}>
       {/* CssBaseline normaliza los márgenes y aplica el color de fondo del tema */}
       <CssBaseline />
-      <App />
+      {/* FeedbackProvider: avisos (Snackbar) y pantallas de carga (Backdrop) globales */}
+      <FeedbackProvider>
+        <App />
+      </FeedbackProvider>
     </ThemeProvider>
   </React.StrictMode>,
 );
