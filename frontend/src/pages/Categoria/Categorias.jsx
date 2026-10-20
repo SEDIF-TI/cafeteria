@@ -90,7 +90,7 @@ export default function Categorias() {
           startIcon={<AddIcon />}
           onClick={() => setOpenAddModal(true)}
           sx={{
-            backgroundColor: '#691c32',
+            backgroundColor: 'primary.main',
             '&:hover': { backgroundColor: '#501525' },
             textTransform: 'none',
             borderRadius: '8px',
@@ -147,7 +147,7 @@ export default function Categorias() {
       {/* Modal para Crear Categoría */}
       <Dialog open={openAddModal} onClose={() => setOpenAddModal(false)} maxWidth="sm" fullWidth>
         <form onSubmit={handleCrearCategoria}>
-          <DialogTitle sx={{ fontWeight: 600, color: '#691c32' }}>Registrar Nueva Categoría</DialogTitle>
+          <DialogTitle sx={{ fontWeight: 600, color: 'primary.main' }}>Registrar Nueva Categoría</DialogTitle>
           <DialogContent>
             <TextField
               autoFocus
@@ -180,7 +180,7 @@ export default function Categorias() {
             <Button
               type="submit"
               variant="contained"
-              sx={{ backgroundColor: '#691c32', '&:hover': { backgroundColor: '#501525' }, textTransform: 'none' }}
+              sx={{ backgroundColor: 'primary.main', '&:hover': { backgroundColor: '#501525' }, textTransform: 'none' }}
             >
               Guardar
             </Button>

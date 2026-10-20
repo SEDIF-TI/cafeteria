@@ -189,7 +189,7 @@ export default function MenuCafeteria() {
                     size="small" 
                     startIcon={<RestaurantMenuIcon />}
                     onClick={() => handleOpenReceta(prod)}
-                    sx={{ color: '#691c32' }}
+                    sx={{ color: 'primary.main' }}
                   >
                     Receta
                   </Button>
@@ -235,7 +235,7 @@ export default function MenuCafeteria() {
             <Button 
               variant="contained" 
               onClick={handleAgregarInsumo}
-              sx={{ backgroundColor: '#691c32' }}
+              sx={{ backgroundColor: 'primary.main' }}
             >
               <AddCircleOutlineIcon />
             </Button>
@@ -267,7 +267,7 @@ export default function MenuCafeteria() {
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpenRecetaDialog(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleGuardarReceta} sx={{ backgroundColor: '#691c32' }}>
+          <Button variant="contained" onClick={handleGuardarReceta} sx={{ backgroundColor: 'primary.main' }}>
             Guardar Receta
           </Button>
         </DialogActions>

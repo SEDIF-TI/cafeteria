@@ -62,7 +62,7 @@ export default function RegistroClientePublico() {
   return (
     <Container maxWidth="xs" sx={{ mt: 4, mb: 4 }}>
       <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
-        <Typography variant="h6" fontWeight="bold" align="center" sx={{ color: '#691c32' }} gutterBottom>
+        <Typography variant="h6" fontWeight="bold" align="center" sx={{ color: 'primary.main' }} gutterBottom>
           Registro de Cliente - SEDIF Cafetería
         </Typography>
         <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
@@ -136,7 +136,7 @@ export default function RegistroClientePublico() {
             fullWidth
             size="large"
             disabled={loading}
-            sx={{ mt: 3, backgroundColor: '#691c32', py: 1.5, '&:hover': { backgroundColor: '#4a1323' } }}
+            sx={{ mt: 3, backgroundColor: 'primary.main', py: 1.5, '&:hover': { backgroundColor: 'primary.dark' } }}
           >
             {loading ? 'Guardando...' : 'Completar Registro'}
           </Button>

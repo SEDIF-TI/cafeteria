@@ -117,7 +117,7 @@ export default function Dashboard() {
   if (cargando && !datos) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="80vh">
-        <CircularProgress sx={{ color: '#691c32' }} />
+        <CircularProgress sx={{ color: 'primary.main' }} />
       </Box>
     );
   }

@@ -5,9 +5,13 @@ export const theme = createTheme({
     palette: {
         primary: {
             main: coloresInstitucionales.primario,
+            dark: coloresInstitucionales.primarioOscuro,
+            contrastText: '#ffffff',
         },
         secondary: {
             main: coloresInstitucionales.secundario,
+            dark: coloresInstitucionales.secundarioOscuro,
+            contrastText: '#ffffff',
         },
         background: {
             default: coloresInstitucionales.fondo,

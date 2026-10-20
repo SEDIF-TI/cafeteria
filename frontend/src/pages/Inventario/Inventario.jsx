@@ -396,7 +396,7 @@ export default function Inventario() {
           variant="contained" 
           startIcon={<AddIcon />} 
           onClick={handleOpenCreate}
-          sx={{ backgroundColor: '#691c32' }}
+          sx={{ backgroundColor: 'primary.main' }}
         >
           Nuevo Producto
         </Button>
@@ -475,7 +475,7 @@ export default function Inventario() {
                     )}
 
                     <Tooltip title="Editar Producto">
-                      <IconButton onClick={() => handleEdit(item)} sx={{ color: '#691c32' }}>
+                      <IconButton onClick={() => handleEdit(item)} sx={{ color: 'primary.main' }}>
                         <EditIcon />
                       </IconButton>
                     </Tooltip>
@@ -609,7 +609,7 @@ export default function Inventario() {
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={handleCloseDialog}>Cancelar</Button>
-          <Button variant="contained" onClick={handleGuardar} sx={{ backgroundColor: '#691c32' }}>
+          <Button variant="contained" onClick={handleGuardar} sx={{ backgroundColor: 'primary.main' }}>
             {editId ? 'Guardar Cambios' : 'Crear Registro'}
           </Button>
         </DialogActions>

@@ -75,7 +75,7 @@ export default function MainLayout() {
   const drawerContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
       <Toolbar sx={{ px: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 700, color: '#691c32', letterSpacing: '0.5px' }}>
+        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 700, color: 'primary.main', letterSpacing: '0.5px' }}>
           SEDIF Cafetería
         </Typography>
       </Toolbar>
@@ -95,7 +95,7 @@ export default function MainLayout() {
                   color: isActive ? '#691c32' : '#475569',
                   '&.Mui-selected': {
                     backgroundColor: '#fdf2f4',
-                    color: '#691c32',
+                    color: 'primary.main',
                     '&:hover': { backgroundColor: '#fce7eb' },
                   },
                   '&:hover': { backgroundColor: '#f8fafc', color: '#1e293b' },
@@ -166,7 +166,7 @@ export default function MainLayout() {
               Cerrar sesión
             </Button>
             
-            <Avatar sx={{ width: 38, height: 38, backgroundColor: '#691c32', fontSize: '0.9rem', boxShadow: '0 2px 8px rgba(105, 28, 50, 0.2)' }}>
+            <Avatar sx={{ width: 38, height: 38, backgroundColor: 'primary.main', fontSize: '0.9rem', boxShadow: '0 2px 8px rgba(105, 28, 50, 0.2)' }}>
               <AccountCircleIcon />
             </Avatar>
           </Box>
