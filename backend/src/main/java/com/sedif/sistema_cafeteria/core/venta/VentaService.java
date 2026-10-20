@@ -180,24 +180,75 @@ public class VentaService {
             utensilioService.registrarPrestamo(request.cubiertos(), ventaGuardada, cliente);
         }
 
-        // Notificación por correo
+        // Notificación por correo (ticket detallado con logo, productos y forma de pago)
         if (ventaGuardada.getCliente() != null && ventaGuardada.getCliente().getEmail() != null && !ventaGuardada.getCliente().getEmail().trim().isEmpty()) {
             String tipoTicket = ventaGuardada.getEstado() == EstadoVenta.PAGADO ? "Recibo de Compra" : "Cargo Pendiente (Deuda)";
-            String asunto = tipoTicket + " - Cafetería";
-            String mensajeTicket = String.format(
-                    "Hola %s.\nEl total de tu orden es: $%s.\n\n¡Gracias por tu preferencia!",
-                    ventaGuardada.getCliente().getNombre(),
-                    ventaGuardada.getTotal()
-            );
-            
+            String asunto = tipoTicket + " - Cafetería SEDIF";
             try {
-                emailService.enviarCorreo(ventaGuardada.getCliente().getEmail(), asunto, mensajeTicket);
+                emailService.enviarCorreoHtml(ventaGuardada.getCliente().getEmail(), asunto, construirTicketHtml(ventaGuardada));
             } catch (Exception e) {
                 System.err.println("No se pudo enviar el ticket por correo: " + e.getMessage());
             }
         }
 
         return new VentaResponseRecord(ventaGuardada);
+    }
+
+    /** Arma el cuerpo HTML del ticket: logo, productos, forma de pago y total. */
+    private String construirTicketHtml(Venta venta) {
+        boolean pagado = venta.getEstado() == EstadoVenta.PAGADO;
+        String tituloEstado = pagado ? "Recibo de compra" : "Cargo pendiente (deuda)";
+        String colorEstado = pagado ? "#2e7d32" : "#b26a00";
+        String metodo = venta.getMetodoPago() != null ? venta.getMetodoPago() : "N/D";
+
+        StringBuilder filas = new StringBuilder();
+        for (DetalleVenta d : venta.getDetalles()) {
+            String nombre = d.getProducto() != null ? d.getProducto().getNombre() : "Producto";
+            filas.append(String.format(
+                    "<tr>"
+                  + "<td style='padding:8px 10px;border-bottom:1px solid #eee;'>%s</td>"
+                  + "<td style='padding:8px 10px;border-bottom:1px solid #eee;text-align:center;'>%d</td>"
+                  + "<td style='padding:8px 10px;border-bottom:1px solid #eee;text-align:right;'>$%s</td>"
+                  + "<td style='padding:8px 10px;border-bottom:1px solid #eee;text-align:right;'>$%s</td>"
+                  + "</tr>",
+                    nombre, d.getCantidad(), d.getPrecioUnitario(), d.getSubtotal()));
+        }
+
+        return ""
+          + "<div style='font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;"
+          + "border:1px solid #eee;border-radius:12px;overflow:hidden;'>"
+          + "  <div style='background:#691c32;padding:20px;text-align:center;'>"
+          + "    <img src='cid:" + "logoCafeteria" + "' alt='Cafetería SEDIF' style='max-height:70px;' />"
+          + "    <div style='color:#fff;font-size:18px;font-weight:bold;margin-top:8px;'>Cafetería SEDIF</div>"
+          + "  </div>"
+          + "  <div style='padding:24px;'>"
+          + "    <p style='margin:0 0 4px;'>Hola <strong>" + venta.getCliente().getNombre() + "</strong>,</p>"
+          + "    <p style='margin:0 0 16px;color:#555;'>Gracias por tu compra. Aquí está el detalle de tu orden:</p>"
+          + "    <p style='margin:0 0 16px;'>"
+          + "      <span style='display:inline-block;padding:4px 12px;border-radius:14px;"
+          + "background:" + colorEstado + ";color:#fff;font-size:13px;'>" + tituloEstado + "</span>"
+          + "      &nbsp;·&nbsp; Ticket #" + venta.getPnId()
+          + "    </p>"
+          + "    <table style='width:100%;border-collapse:collapse;font-size:14px;'>"
+          + "      <thead><tr style='background:#faf3f5;'>"
+          + "        <th style='padding:8px 10px;text-align:left;'>Producto</th>"
+          + "        <th style='padding:8px 10px;text-align:center;'>Cant.</th>"
+          + "        <th style='padding:8px 10px;text-align:right;'>P. Unit.</th>"
+          + "        <th style='padding:8px 10px;text-align:right;'>Subtotal</th>"
+          + "      </tr></thead>"
+          + "      <tbody>" + filas + "</tbody>"
+          + "    </table>"
+          + "    <div style='margin-top:16px;padding-top:12px;border-top:2px solid #691c32;"
+          + "display:flex;justify-content:space-between;font-size:16px;'>"
+          + "      <span><strong>Forma de pago:</strong> " + metodo + "</span>"
+          + "      <span><strong>Total: $" + venta.getTotal() + "</strong></span>"
+          + "    </div>"
+          + (pagado ? "" : "    <p style='margin:16px 0 0;color:#b26a00;font-size:13px;'>"
+                          + "Este cargo quedó registrado como deuda. Podrás liquidarlo en caja.</p>")
+          + "    <p style='margin:20px 0 0;color:#888;font-size:12px;text-align:center;'>"
+          + "¡Gracias por tu preferencia!</p>"
+          + "  </div>"
+          + "</div>";
     }
 
     @Transactional(readOnly = true)
