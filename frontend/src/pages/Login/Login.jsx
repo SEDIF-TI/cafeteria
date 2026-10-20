@@ -160,7 +160,7 @@ const Login = () => {
             variant="contained"
             disabled={isLoading}
             sx={{
-              backgroundColor: '#691c32',
+              backgroundColor: 'primary.main',
               color: 'white',
               padding: '12px',
               fontSize: '1rem',
@@ -169,13 +169,20 @@ const Login = () => {
               borderRadius: '8px',
               boxShadow: 'none',
               '&:hover': {
-                backgroundColor: '#521526',
+                backgroundColor: 'primary.dark',
                 boxShadow: 'none',
               },
             }}
           >
             {isLoading ? 'Iniciando...' : 'Iniciar sesión'}
           </Button>
+
+          <Box sx={{ textAlign: 'center', mt: 2 }}>
+            <Button variant="text" onClick={() => navigate('/cliente/recuperar')}
+              sx={{ color: 'primary.main', textTransform: 'none', fontSize: '0.9rem' }}>
+              ¿Olvidaste tu contraseña?
+            </Button>
+          </Box>
         </form>
       </Paper>
     </Box>
