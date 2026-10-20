@@ -49,7 +49,7 @@ export default function RecuperarPasswordCliente() {
         codigo,
         passwordNueva
       });
-      navigate('/cliente/login');
+      navigate('/login');
     } catch (err) {
       setError(err.response?.data?.message || 'Código inválido o expirado.');
     } finally {
@@ -97,7 +97,7 @@ export default function RecuperarPasswordCliente() {
         )}
 
         <Box sx={{ mt: 2, textAlign: 'center' }}>
-          <MuiLink component={RouterLink} to="/cliente/login" variant="body2" underline="hover">
+          <MuiLink component={RouterLink} to="/login" variant="body2" underline="hover">
             Volver a iniciar sesión
           </MuiLink>
         </Box>

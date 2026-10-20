@@ -39,7 +39,7 @@ export default function CambiarPasswordCliente() {
       navigate('/cliente/mi-apartado');
     } catch (err) {
       if (err.response?.status === 401) {
-        navigate('/cliente/login');
+        navigate('/login');
         return;
       }
       setError(err.response?.data?.message || 'No se pudo cambiar la contraseña.');

@@ -17,7 +17,6 @@ import MenuCafeteria from "./pages/Menu/MenuCafeteria";
 import Recetas from "./pages/Receta/Recetas";
 
 // Módulos públicos de Cliente
-import ClienteLogin from "./pages/cliente/ClienteLogin";
 import MiApartado from "./pages/cliente/MiApartado";
 import HistorialVentas from "./pages/Ventas/HistorialVentas";
 import Clientes from "./pages/Clientes/Clientes";
@@ -36,7 +35,6 @@ export default function App() {
           <Route path="/login" element={<Login />} />
 
           {/* Rutas Públicas de Cliente */}
-          <Route path="/cliente/login" element={<ClienteLogin />} />
           <Route path="/cliente/mi-apartado" element={<MiApartado />} />
           <Route path="/cliente/cambiar-password" element={<CambiarPasswordCliente />} />
           <Route path="/cliente/recuperar" element={<RecuperarPasswordCliente />} />
