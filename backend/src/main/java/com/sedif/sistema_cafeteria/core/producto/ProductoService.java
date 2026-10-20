@@ -24,7 +24,7 @@ public class ProductoService {
     private final ProductoRepository productoRepository;
     private final CategoriaRepository categoriaRepository;
     private final InventarioRepository inventarioRepository;
-    private final RecetaRepository recetaRepository; // Inyección corregida a RecetaRepository
+    private final RecetaRepository recetaRepository;
 
     @Transactional
     public ProductoResponseRecord crearProducto(ProductoRequestRecord request) {
@@ -44,6 +44,7 @@ public class ProductoService {
                 .orElseThrow(() -> new EntityNotFoundException("Categoría no encontrada con id: " + request.categoriaId()));
 
         BigDecimal precioVal = request.precio() != null ? request.precio() : BigDecimal.ZERO;
+        BigDecimal costoVal = request.costo() != null ? request.costo() : BigDecimal.ZERO;
         BigDecimal stockInicial = request.stock() != null ? request.stock() : BigDecimal.ZERO;
         BigDecimal stockMinimo = request.stockMinimo() != null ? request.stockMinimo() : BigDecimal.ZERO;
         UnidadMedida unidad = parseUnidadMedida(request.unidadMedida());
@@ -73,6 +74,7 @@ public class ProductoService {
                 .nombre(request.nombre().trim())
                 .descripcion(request.descripcion() != null ? request.descripcion() : "")
                 .precio(precioVal)
+                .costo(costoVal)
                 .esDirecto(Boolean.TRUE.equals(request.esDirecto()))
                 .inventario(inventario)
                 .categoria(categoria)
@@ -121,6 +123,12 @@ public class ProductoService {
         producto.setEsDirecto(Boolean.TRUE.equals(request.esDirecto()));
         producto.setCategoria(categoria);
 
+        // Lógica de costo y evaluación para actualización en cascada
+        BigDecimal costoAnterior = producto.getCosto();
+        BigDecimal nuevoCosto = request.costo() != null ? request.costo() : BigDecimal.ZERO;
+        producto.setCosto(nuevoCosto);
+        boolean costoCambio = (costoAnterior == null || costoAnterior.compareTo(nuevoCosto) != 0);
+
         BigDecimal stockVal = request.stock() != null ? request.stock() : BigDecimal.ZERO;
         BigDecimal stockMinVal = request.stockMinimo() != null ? request.stockMinimo() : BigDecimal.ZERO;
         UnidadMedida unidadVal = parseUnidadMedida(request.unidadMedida());
@@ -145,6 +153,12 @@ public class ProductoService {
         producto.setInventario(inventario);
 
         Producto productoGuardado = productoRepository.save(producto);
+
+        // Si el costo del insumo cambió, actualizamos los productos padre en cascada
+        if (costoCambio) {
+            actualizarCostosEnCascada(productoGuardado);
+        }
+
         return new ProductoResponseRecord(productoGuardado, calcularStockDisponible(productoGuardado));
     }
 
@@ -193,7 +207,6 @@ public class ProductoService {
                     : BigDecimal.ZERO;
         }
 
-        // Búsqueda en la tabla recetas a través del producto padre
         List<Receta> receta = recetaRepository.findByProductoPadreId(producto.getId());
         if (receta == null || receta.isEmpty()) {
             return BigDecimal.ZERO;
@@ -202,7 +215,6 @@ public class ProductoService {
         BigDecimal minPorciones = null;
 
         for (Receta item : receta) {
-            // Acceso correcto al stock desde el inventario del producto materia prima
             if (item.getInsumo() == null 
                     || item.getInsumo().getInventario() == null 
                     || item.getInsumo().getInventario().getStockActual() == null) {
@@ -224,5 +236,43 @@ public class ProductoService {
         }
 
         return minPorciones != null ? minPorciones : BigDecimal.ZERO;
+    }
+
+    // Método Privado: Actualización de costos en cascada
+    private void actualizarCostosEnCascada(Producto insumo) {
+        // Obtenemos todas las recetas donde se usa este insumo
+        List<Receta> recetasAfectadas = recetaRepository.findByInsumoId(insumo.getId());
+        
+        // Obtenemos los productos "Padre" (Ej: Sándwich, Café)
+        List<Producto> productosPadre = recetasAfectadas.stream()
+                .map(Receta::getProductoPadre)
+                .distinct()
+                .toList();
+
+        // Recalculamos el costo de cada producto padre
+        for (Producto padre : productosPadre) {
+            List<Receta> ingredientes = recetaRepository.findByProductoPadreId(padre.getId());
+            BigDecimal costoTotal = BigDecimal.ZERO;
+
+            for (Receta r : ingredientes) {
+                Producto ing = r.getInsumo();
+                BigDecimal costoIng = ing.getCosto() != null ? ing.getCosto() : BigDecimal.ZERO;
+                BigDecimal cant = r.getCantidad();
+                
+                String unidad = ing.getInventario() != null && ing.getInventario().getUnidadMedida() != null 
+                        ? ing.getInventario().getUnidadMedida().name() 
+                        : "UNIDAD";
+
+                if (unidad.equals("GRAMOS") || unidad.equals("MILILITROS")) {
+                    BigDecimal costoPorUnidad = costoIng.divide(new BigDecimal("1000"), 6, RoundingMode.HALF_UP);
+                    costoTotal = costoTotal.add(costoPorUnidad.multiply(cant));
+                } else {
+                    costoTotal = costoTotal.add(costoIng.multiply(cant));
+                }
+            }
+            
+            padre.setCosto(costoTotal.setScale(2, RoundingMode.HALF_UP));
+            productoRepository.save(padre);
+        }
     }
 }

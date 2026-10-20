@@ -4,6 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
 
 import java.util.List;
 
@@ -71,5 +72,25 @@ public class InventarioService {
         
         inventario.setActivo(!inventario.getActivo());
         inventarioRepository.save(inventario);
+    }
+
+    @Transactional
+    public InventarioResponseRecord ajustarInventario(Long id, AjusteInventarioRequestRecord request) {
+        if (request.nuevaCantidad() == null || request.nuevaCantidad().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("La nueva cantidad de stock no puede ser nula ni negativa.");
+        }
+
+        Inventario inventario = inventarioRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Registro de inventario no encontrado con id: " + id));
+
+        // Actualizar el stock
+        inventario.setStockActual(request.nuevaCantidad());
+        
+        // Si tu entidad tiene un campo de última actualización o motivo, actualízalos aquí
+        // inventario.setMotivoUltimoAjuste(request.motivoAjuste());
+
+        Inventario inventarioActualizado = inventarioRepository.save(inventario);
+
+        return new InventarioResponseRecord(inventarioActualizado);
     }
 }

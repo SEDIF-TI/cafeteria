@@ -4,14 +4,16 @@ export default function GlobalStyles() {
     return (
         <MuiGlobalStyles
             styles={{
-                // Estilos globales aplicados a todo el sitio
-                body: {
+                // Reset agresivo para que ocupe toda la pantalla
+                'html, body, #root': {
                     margin: 0,
                     padding: 0,
-                    backgroundColor: '#f4f6f8', // Color de fondo general para las páginas
+                    width: '100%',
+                    maxWidth: 'none !important', // Rompe cualquier límite de Vite
+                    minHeight: '100vh',
+                    backgroundColor: '#f4f6f8',
                     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
                 },
-                // Clases reutilizables opcionales para contenedores generales
                 '.contenedor-principal': {
                     display: 'flex',
                     flexDirection: 'column',

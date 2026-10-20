@@ -55,4 +55,13 @@ public class InventarioResource {
         inventarioService.alternarEstado(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/{id}/ajustar")
+    public ResponseEntity<InventarioResponseRecord> ajustarInventario(
+            @PathVariable Long id, 
+            @RequestBody AjusteInventarioRequestRecord request) {
+        
+        InventarioResponseRecord response = inventarioService.ajustarInventario(id, request);
+        return ResponseEntity.ok(response);
+    }
 }

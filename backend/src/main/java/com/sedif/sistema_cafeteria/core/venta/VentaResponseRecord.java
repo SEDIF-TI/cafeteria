@@ -13,7 +13,11 @@ public record VentaResponseRecord(
         List<DetalleVentaResponseRecord> detalles,
         EstadoVenta estado,
         Long clienteId,
-        String clienteNombre
+        String clienteNombre,
+        String clienteArea,
+        String metodoPago,
+        BigDecimal montoAbonado,
+        BigDecimal saldoPendiente
 ) {
     public record DetalleVentaResponseRecord(
             Long productoId,
@@ -43,7 +47,11 @@ public record VentaResponseRecord(
             venta.getDetalles().stream().map(DetalleVentaResponseRecord::new).toList(),
             venta.getEstado(),
             venta.getCliente() != null ? venta.getCliente().getPnId() : null,
-            venta.getCliente() != null ? venta.getCliente().getNombre() : null
+            venta.getCliente() != null ? venta.getCliente().getNombre() : null,
+            venta.getCliente() != null ? venta.getCliente().getArea() : null,
+            venta.getMetodoPago(),
+            venta.getMontoAbonado() != null ? venta.getMontoAbonado() : BigDecimal.ZERO,
+            venta.getSaldoPendiente()
         );
     }
 }

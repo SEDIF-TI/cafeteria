@@ -113,12 +113,20 @@ public class SecurityConfig {
                 // Rutas publicas (Login, Salud, WebSockets si los usas)
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/v1/auth/**").permitAll() 
-                .requestMatchers("/api/auth/**").permitAll() // <--- RUTA AGREGADA PARA POSTMAN
+                .requestMatchers("/api/auth/**").permitAll() 
                 .requestMatchers("/api/salud").permitAll()
+                
+                // PERMITIR EL REGISTRO PÚBLICO DE CLIENTES (POST sin autenticación)
+                .requestMatchers(HttpMethod.POST, "/api/v1/clientes").permitAll()
+
+                // Apartado del cliente: login y recuperacion de contrasena son publicos
+                .requestMatchers(HttpMethod.POST, "/api/v1/clientes/login").permitAll()
+                .requestMatchers("/api/v1/clientes/recuperar/**").permitAll()
 
                 // Rutas exclusivas para administracion (Reportes, Configuracion, Borrado de productos)
                 .requestMatchers("/api/v1/admin/**")
-                .hasAnyAuthority("ROLE_SUPER_ADMINISTRADOR", "SUPER_ADMINISTRADOR", "ROLE_ADMINISTRADOR", "ADMINISTRADOR")
+                .hasAnyAuthority("ROLE_SUPER_ADMINISTRADOR", "SUPER_ADMINISTRADOR", "ROLE_ADMINISTRADOR", "ADMINISTRADOR",
+                        "ROLE_SUPER_ADMIN", "SUPER_ADMIN", "ROLE_ADMIN", "ADMIN")
 
                 // Todo lo demas (Ventas, Clientes, Deudores, Productos) exige estar autenticado (Cajero)
                 .anyRequest().authenticated()

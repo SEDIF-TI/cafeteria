@@ -8,5 +8,8 @@ import java.util.List;
 @Repository
 public interface RecetaRepository extends JpaRepository<Receta, Long> {
     List<Receta> findByProductoPadreId(Long productoPadreId);
+
     void deleteByProductoPadreId(Long productoPadreId);
+    
+    List<Receta> findByInsumoId(Long insumoId);
 }

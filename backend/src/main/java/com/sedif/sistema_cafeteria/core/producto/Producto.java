@@ -31,10 +31,13 @@ public class Producto {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal precio;
 
-    @Column(nullable = false)
-    private Boolean esDirecto; // true = se vende por unidad directa (ej. agua), false = usa receta (gramos/ml)
+    // NUEVO CAMPO: Costo de adquisición o fabricación
+    @Column(precision = 10, scale = 2)
+    private BigDecimal costo;
 
-    // Si es directo, apunta directamente al inventario unitario
+    @Column(nullable = false)
+    private Boolean esDirecto; 
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "inventario_id", nullable = true)
     private Inventario inventario;

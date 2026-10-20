@@ -7,61 +7,59 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 /**
- * Configuracion CORS de la API REST.
- *
- * <p>Publica el {@link CorsConfigurationSource} que consume
- * {@code SecurityConfig}, aplicado a todas las rutas. Los origenes permitidos
- * se leen de {@code app.cors.allowed-origins} separados por coma, de modo que
- * cambiar de dominio es cuestion de configuracion y no exige recompilar.</p>
- *
- * <p>{@code WebSocketConfig} lee esa misma propiedad para el handshake, con lo
- * que ambos canales no pueden quedar desincronizados.</p>
+ * Configuracion CORS dinamica para la API REST.
+ * Soporta cambios de IP en red local (LAN) y tuneles de desarrollo.
  */
 @Configuration
 public class WebConfig {
 
-    private final List<String> origenesPermitidos;
-
-    public WebConfig(@Value("${app.cors.allowed-origins}") String origenes) {
-        this.origenesPermitidos = Arrays.stream(origenes.split(","))
-                .map(String::trim)
-                .filter(o -> !o.isEmpty())
-                .toList();
-    }
+    @Value("${app.cors.allowed-origins:http://localhost:5173}")
+    private String allowedOriginsProperty;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
+        CorsConfiguration configuration = new CorsConfiguration();
+        
+        List<String> patronesPermitidos = new ArrayList<>();
 
-        // Lista explicita de origenes. No se usa el comodin "*" porque es
-        // incompatible con allowCredentials y permitiria que cualquier sitio
-        // llamara a la API desde el navegador de un usuario con sesion activa.
-        config.setAllowedOrigins(origenesPermitidos);
+        // 1. Agregar los origenes definidos en application.properties / .env
+        if (allowedOriginsProperty != null && !allowedOriginsProperty.isBlank()) {
+            Arrays.stream(allowedOriginsProperty.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .forEach(patronesPermitidos::add);
+        }
 
-        // HEAD figura en la lista porque el sondeo de conectividad del frontend
-        // lo usa cada treinta segundos: pide solo las cabeceras, sin descargar
-        // cuerpo. Un metodo ausente aqui hace que el navegador rechace el
-        // preflight y lo reporte como error de CORS.
-        config.setAllowedMethods(List.of("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+        // 2. Comodines para que NUNCA falle si cambia la IP en la red local o tuneles
+        patronesPermitidos.addAll(List.of(
+            "http://localhost:*",
+            "http://127.0.0.1:*",
+            "http://10.*:*",              // Acepta cualquier IP en rango 10.x.x.x
+            "http://192.168.*:*",         // Acepta cualquier IP en rango 192.168.x.x
+            "http://172.*:*",             // Redes privadas 172.16.0.0/12
+            "http://10.*",                // Mismas redes sin puerto explicito (puerto 80)
+            "http://192.168.*",
+            "http://172.*",
+            "https://*.trycloudflare.com",// Cloudflare Tunnels
+            "https://*.loca.lt",          // Localtunnel
+            "https://*.ngrok-free.app"    // Ngrok
+        ));
 
-        // Sin exponerlo, el navegador oculta este encabezado al codigo del
-        // frontend y las descargas de PDF (memorandums y requisiciones) pierden
-        // el nombre del archivo.
-        config.setExposedHeaders(List.of("Content-Disposition"));
-
-        config.setAllowCredentials(true);
-
-        // El navegador cachea la respuesta preflight una hora, lo que evita una
-        // peticion OPTIONS por cada llamada a la API.
-        config.setMaxAge(3600L);
+        // Asignar mediante setAllowedOriginPatterns (soporta comodines * con allowCredentials=true)
+        configuration.setAllowedOriginPatterns(patronesPermitidos);
+        
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
+        source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from 'axios';
+import api from '../../api/axiosClient';
 import {
   Box,
   Container,
@@ -34,10 +34,7 @@ export default function Deudores() {
   useEffect(() => {
     const obtenerDeudores = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:8080/api/v1/ventas', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get('/ventas');
 
         // Filtrar solo las ventas con estado PENDIENTE y mapearlas al formato de tu tabla
         const pendientes = response.data
@@ -45,8 +42,8 @@ export default function Deudores() {
           .map(v => ({
             id: v.id,
             nombre: v.clienteNombre || 'Público General',
-            area: 'Cliente / General', // O el campo de área si lo tienes en el cliente
-            totalDeuda: v.total,
+            area: v.clienteArea || 'Sin área',
+            totalDeuda: Number(v.saldoPendiente ?? v.total),
             fechaUltima: v.fechaCreacion ? v.fechaCreacion.split('T')[0] : '',
             estado: 'Pendiente'
           }));
@@ -85,11 +82,8 @@ export default function Deudores() {
 
     setLoadingPago(true);
     try {
-      const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:8080/api/v1/ventas/${deudorSeleccionado.id}/liquidar`, {
+      await api.put(`/ventas/${deudorSeleccionado.id}/liquidar`, {
         montoIngresado: abono
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
 
       // Actualizar la lista localmente con la resta matemática
