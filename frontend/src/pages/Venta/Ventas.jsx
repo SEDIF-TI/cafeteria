@@ -326,14 +326,10 @@ export default function Ventas() {
       }}>
         <Paper 
           elevation={4} 
-          sx={{ 
+          sx={{
             width: '100%',
             borderRadius: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            height: { xs: 'auto', md: 'calc(100vh - 112px)' },
-            maxHeight: { xs: 'none', md: 'calc(100vh - 112px)' },
-            overflow: { xs: 'visible', md: 'hidden' },
+            overflow: 'hidden',
             bgcolor: '#ffffff',
             border: '1px solid #e9ecef'
           }}
@@ -381,7 +377,7 @@ export default function Ventas() {
               </Typography>
             </Box>
           ) : (
-            <Box display="flex" flexDirection="column" flex={1} sx={{ minHeight: 0, overflow: { xs: 'visible', md: 'hidden' } }}>
+            <Box display="flex" flexDirection="column">
               <Stack 
                 direction="row" 
                 alignItems="center" 
@@ -393,7 +389,7 @@ export default function Ventas() {
                 <Box sx={{ width: '40px' }}></Box>
               </Stack>
 
-              <Box flex={1} sx={{ minHeight: 0, overflowY: { xs: 'visible', md: 'auto' }, '&::-webkit-scrollbar': { width: '8px' }, '&::-webkit-scrollbar-thumb': { bgcolor: '#ced4da', borderRadius: '4px' } }}>
+              <Box sx={{ maxHeight: { xs: '42vh', md: 'calc(100vh - 370px)' }, minHeight: '120px', overflowY: 'auto', '&::-webkit-scrollbar': { width: '8px' }, '&::-webkit-scrollbar-thumb': { bgcolor: '#ced4da', borderRadius: '4px' } }}>
                 {carrito.map((item) => (
                   <Stack 
                     key={item.productoId} 
