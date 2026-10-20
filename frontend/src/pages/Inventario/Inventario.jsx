@@ -423,6 +423,8 @@ export default function Inventario() {
               const stockActualVal = inv.stockActual ?? item.stockActual ?? 0;
               const stockMinimoVal = inv.stockMinimo ?? item.stockMinimo ?? 0;
               const esDirectoVal = item.esDirecto ?? true;
+              // Compuesto: producto no directo preparado al momento (sin inventario físico propio, se arma por receta)
+              const esCompuesto = !esDirectoVal && !item.inventario;
 
               return (
                 <TableRow key={item.id}>
@@ -436,35 +438,41 @@ export default function Inventario() {
                     ${Number(item.precio || 0).toFixed(2)}
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={esDirectoVal ? 'Venta Directa' : 'Materia Prima'} 
-                      color={esDirectoVal ? 'info' : 'secondary'} 
+                    <Chip
+                      label={esDirectoVal ? 'Venta Directa' : esCompuesto ? 'Preparado al momento' : 'Materia Prima'}
+                      color={esDirectoVal ? 'info' : esCompuesto ? 'success' : 'secondary'}
                       size="small"
                     />
                   </TableCell>
                   <TableCell align="center">
-                    <Chip 
-                      label={formatearUnidad(stockActualVal, item)} 
+                    <Chip
+                      label={esCompuesto
+                        ? `${Number(item.stockDisponible || 0)} porciones`
+                        : formatearUnidad(stockActualVal, item)}
                       size="small"
                       sx={{ backgroundColor: '#f5f5f5', color: '#555', fontWeight: '500' }}
                     />
                   </TableCell>
                   <TableCell align="center" sx={{ color: 'text.secondary' }}>
-                    {formatearUnidad(stockMinimoVal, item)}
+                    {esCompuesto ? '— (según receta)' : formatearUnidad(stockMinimoVal, item)}
                   </TableCell>
 
                   <TableCell align="center">
-                    <Tooltip title="Reabastecer / Sumar Stock">
-                      <IconButton onClick={() => handleOpenSumarStock(item)} sx={{ color: '#2e7d32' }}>
-                        <Inventory2Icon />
-                      </IconButton>
-                    </Tooltip>
+                    {!esCompuesto && (
+                      <>
+                        <Tooltip title="Reabastecer / Sumar Stock">
+                          <IconButton onClick={() => handleOpenSumarStock(item)} sx={{ color: '#2e7d32' }}>
+                            <Inventory2Icon />
+                          </IconButton>
+                        </Tooltip>
 
-                    <Tooltip title="Ajustar / Forzar Stock Exacto">
-                      <IconButton onClick={() => handleOpenAjuste(item)} sx={{ color: '#ed6c02' }}>
-                        <BuildIcon />
-                      </IconButton>
-                    </Tooltip>
+                        <Tooltip title="Ajustar / Forzar Stock Exacto">
+                          <IconButton onClick={() => handleOpenAjuste(item)} sx={{ color: '#ed6c02' }}>
+                            <BuildIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </>
+                    )}
 
                     <Tooltip title="Editar Producto">
                       <IconButton onClick={() => handleEdit(item)} sx={{ color: '#691c32' }}>
