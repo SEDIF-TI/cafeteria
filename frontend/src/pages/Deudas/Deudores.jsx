@@ -18,7 +18,8 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Alert
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import PaymentIcon from '@mui/icons-material/Payment';
@@ -29,6 +30,7 @@ export default function Deudores() {
   const [modalAbono, setModalAbono] = useState(false);
   const [deudorSeleccionado, setDeudorSeleccionado] = useState(null);
   const [montoAbono, setMontoAbono] = useState('');
+  const [efectivoRecibido, setEfectivoRecibido] = useState('');
 
   // Cargar deudas del backend al iniciar
   useEffect(() => {
@@ -65,6 +67,7 @@ export default function Deudores() {
   const handleOpenAbono = (deudor) => {
     setDeudorSeleccionado(deudor);
     setMontoAbono('');
+    setEfectivoRecibido('');
     setModalAbono(true);
   };
 
@@ -191,17 +194,47 @@ export default function Deudores() {
               <Typography variant="body2" color="error.main">
                 Adeudo Actual: <b>${Number(deudorSeleccionado.totalDeuda).toFixed(2)}</b>
               </Typography>
+
               <TextField
-                label="Monto a Pagar / Abonar"
+                label="Monto a abonar (se aplica a la deuda)"
                 type="number"
                 fullWidth
                 autoFocus
                 value={montoAbono}
                 onChange={(e) => setMontoAbono(e.target.value)}
-                InputProps={{
-                  startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>
-                }}
+                inputProps={{ min: 0, step: 'any', max: deudorSeleccionado.totalDeuda }}
+                InputProps={{ startAdornment: <Typography sx={{ mr: 1 }}>$</Typography> }}
+                helperText="No puede ser mayor al adeudo"
               />
+              <Button size="small" variant="outlined" sx={{ alignSelf: 'flex-start' }}
+                onClick={() => setMontoAbono(Number(deudorSeleccionado.totalDeuda).toFixed(2))}>
+                Abonar todo (${Number(deudorSeleccionado.totalDeuda).toFixed(2)})
+              </Button>
+
+              <TextField
+                label="Efectivo recibido (opcional)"
+                type="number"
+                fullWidth
+                value={efectivoRecibido}
+                onChange={(e) => setEfectivoRecibido(e.target.value)}
+                inputProps={{ min: 0, step: 'any' }}
+                InputProps={{ startAdornment: <Typography sx={{ mr: 1 }}>$</Typography> }}
+                helperText="Lo que entrega el cliente, para calcular el cambio"
+              />
+
+              {(() => {
+                const abono = parseFloat(montoAbono);
+                const recibido = parseFloat(efectivoRecibido);
+                if (isNaN(abono) || isNaN(recibido) || recibido <= 0) return null;
+                if (recibido < abono) {
+                  return <Alert severity="warning">El efectivo recibido es menor al monto a abonar.</Alert>;
+                }
+                return (
+                  <Alert severity="success" sx={{ fontWeight: 'bold' }}>
+                    Cambio a devolver: ${(recibido - abono).toFixed(2)}
+                  </Alert>
+                );
+              })()}
             </Box>
           )}
         </DialogContent>
