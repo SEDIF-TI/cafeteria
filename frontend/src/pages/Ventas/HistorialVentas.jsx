@@ -82,8 +82,27 @@ export default function HistorialVentas() {
   useEffect(() => {
     const cargar = async () => {
       try {
-        const res = await api.get('/ventas');
-        setVentas(res.data || []);
+        // La venta solo trae IDs; los nombres se resuelven con los catálogos de clientes y productos.
+        const [resV, resC, resP] = await Promise.all([
+          api.get('/ventas'),
+          api.get('/clientes').catch(() => ({ data: [] })),
+          api.get('/productos').catch(() => ({ data: [] }))
+        ]);
+
+        const mapaC = {}; (resC.data || []).forEach(c => { mapaC[c.id] = c; });
+        const mapaP = {}; (resP.data || []).forEach(p => { mapaP[p.id] = p; });
+
+        const enriquecidas = (resV.data || []).map(v => ({
+          ...v,
+          clienteNombre: v.clienteId ? mapaC[v.clienteId]?.nombre : null,
+          clienteArea: v.clienteId ? mapaC[v.clienteId]?.area : null,
+          detalles: (v.detalles || []).map(d => ({
+            ...d,
+            productoNombre: mapaP[d.productoId]?.nombre || 'Producto'
+          }))
+        }));
+
+        setVentas(enriquecidas);
       } catch (err) {
         setError('No se pudo cargar el historial de ventas.');
       } finally {

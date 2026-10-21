@@ -38,19 +38,28 @@ export default function Deudores() {
   useEffect(() => {
     const obtenerDeudores = async () => {
       try {
-        const response = await api.get('/ventas');
+        // La venta solo trae clienteId; el nombre y el área se resuelven con el catálogo de clientes.
+        const [resVentas, resClientes] = await Promise.all([
+          api.get('/ventas'),
+          api.get('/clientes').catch(() => ({ data: [] }))
+        ]);
 
-        // Filtrar solo las ventas con estado PENDIENTE y mapearlas al formato de tu tabla
-        const pendientes = response.data
+        const mapaClientes = {};
+        (resClientes.data || []).forEach(c => { mapaClientes[c.id] = c; });
+
+        const pendientes = (resVentas.data || [])
           .filter(v => v.estado === 'PENDIENTE')
-          .map(v => ({
-            id: v.id,
-            nombre: v.clienteNombre || 'Público General',
-            area: v.clienteArea || 'Sin área',
-            totalDeuda: Number(v.saldoPendiente ?? v.total),
-            fechaUltima: v.fechaCreacion ? v.fechaCreacion.split('T')[0] : '',
-            estado: 'Pendiente'
-          }));
+          .map(v => {
+            const cli = v.clienteId ? mapaClientes[v.clienteId] : null;
+            return {
+              id: v.id,
+              nombre: cli?.nombre || 'Público General',
+              area: cli?.area || 'Sin área',
+              totalDeuda: Number(v.saldoPendiente ?? v.total),
+              fechaUltima: v.fechaCreacion ? v.fechaCreacion.split('T')[0] : '',
+              estado: 'Pendiente'
+            };
+          });
 
         setDeudores(pendientes);
       } catch (error) {

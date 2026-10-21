@@ -51,7 +51,7 @@ export default function Clientes() {
   const filtrados = useMemo(() => {
     const t = busqueda.toLowerCase().trim();
     return clientes.filter((c) =>
-      !t || [c.nombre, c.numeroControl, c.area, c.email].some((v) => (v || '').toLowerCase().includes(t))
+      !t || [c.nombre, c.numeroControl, c.area].some((v) => (v || '').toLowerCase().includes(t))
     );
   }, [clientes, busqueda]);
 
@@ -65,7 +65,7 @@ export default function Clientes() {
         Empleados registrados. Puedes restablecer su contraseña del portal a la temporal (código + CAFE).
       </Typography>
 
-      <TextField size="small" placeholder="Buscar nombre, código, área o correo" value={busqueda}
+      <TextField size="small" placeholder="Buscar nombre, código o área" value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)} sx={{ minWidth: 280, mb: 2 }}
         InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }} />
 
@@ -80,8 +80,6 @@ export default function Clientes() {
                 <TableCell><b>Nombre</b></TableCell>
                 <TableCell><b>Código</b></TableCell>
                 <TableCell><b>Área</b></TableCell>
-                <TableCell><b>Correo</b></TableCell>
-                <TableCell><b>Teléfono</b></TableCell>
                 <TableCell align="right"><b>Saldo</b></TableCell>
                 <TableCell align="center"><b>Estado</b></TableCell>
                 <TableCell align="center"><b>Contraseña</b></TableCell>
@@ -93,8 +91,6 @@ export default function Clientes() {
                   <TableCell sx={{ fontWeight: 'bold' }}>{c.nombre}</TableCell>
                   <TableCell>{c.numeroControl || '—'}</TableCell>
                   <TableCell>{c.area || '—'}</TableCell>
-                  <TableCell>{c.email || '—'}</TableCell>
-                  <TableCell>{c.telefono || '—'}</TableCell>
                   <TableCell align="right">
                     {Number(c.saldoDeudor) > 0
                       ? <Typography variant="body2" color="error">{dinero(c.saldoDeudor)}</Typography>
@@ -111,7 +107,7 @@ export default function Clientes() {
                 </TableRow>
               ))}
               {filtrados.length === 0 && (
-                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 3 }}>Sin clientes</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 3 }}>Sin clientes</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

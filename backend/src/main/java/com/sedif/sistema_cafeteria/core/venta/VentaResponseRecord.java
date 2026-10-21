@@ -4,24 +4,23 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.math.BigDecimal;
 
+// Las respuestas de venta llevan solo IDs en las referencias (usuario, cliente, producto).
+// El frontend traduce esos IDs a nombres usando los catalogos. Asi el JSON no expone
+// nombres ni datos personales.
 public record VentaResponseRecord(
         Long id,
         Long usuarioId,
-        String usuarioNombre,
         BigDecimal total,
         LocalDateTime fechaCreacion,
         List<DetalleVentaResponseRecord> detalles,
         EstadoVenta estado,
         Long clienteId,
-        String clienteNombre,
-        String clienteArea,
         String metodoPago,
         BigDecimal montoAbonado,
         BigDecimal saldoPendiente
 ) {
     public record DetalleVentaResponseRecord(
             Long productoId,
-            String productoNombre,
             Integer cantidad,
             BigDecimal precioUnitario,
             BigDecimal subtotal
@@ -29,7 +28,6 @@ public record VentaResponseRecord(
         public DetalleVentaResponseRecord(DetalleVenta detalle) {
             this(
                 detalle.getProducto().getId(),
-                detalle.getProducto().getNombre(),
                 detalle.getCantidad(),
                 detalle.getPrecioUnitario(),
                 detalle.getSubtotal()
@@ -41,14 +39,11 @@ public record VentaResponseRecord(
         this(
             venta.getPnId(),
             venta.getUsuario().getId(),
-            venta.getUsuario().getNombre(), // Ajusta según el campo de nombre en tu entidad Usuario
             venta.getTotal(),
             venta.getAuditable().getFechaCreacion(),
             venta.getDetalles().stream().map(DetalleVentaResponseRecord::new).toList(),
             venta.getEstado(),
             venta.getCliente() != null ? venta.getCliente().getPnId() : null,
-            venta.getCliente() != null ? venta.getCliente().getNombre() : null,
-            venta.getCliente() != null ? venta.getCliente().getArea() : null,
             venta.getMetodoPago(),
             venta.getMontoAbonado() != null ? venta.getMontoAbonado() : BigDecimal.ZERO,
             venta.getSaldoPendiente()
