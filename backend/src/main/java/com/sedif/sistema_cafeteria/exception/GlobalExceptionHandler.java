@@ -2,6 +2,7 @@ package com.sedif.sistema_cafeteria.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -56,6 +57,36 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
+     * MODO PRUEBAS. Si es {@code true}, cada respuesta de error incluye el
+     * mensaje real, el tipo de excepcion y el codigo HTTP, para diagnosticar
+     * con exactitud durante las pruebas. En produccion debe ponerse en
+     * {@code false} (en application.properties: app.errores.detallados=false)
+     * para no filtrar detalles internos al cliente.
+     */
+    @Value("${app.errores.detallados:false}")
+    private boolean erroresDetallados;
+
+    /**
+     * Construye la respuesta de error. En modo pruebas expone el detalle real
+     * (mensaje de la excepcion, su tipo y el codigo HTTP); en produccion solo
+     * el mensaje publico recibido.
+     */
+    private ResponseEntity<ApiResponse<Object>> construirError(
+            HttpStatus status, String mensajePublico, Exception ex) {
+
+        if (erroresDetallados) {
+            Map<String, Object> detalle = new HashMap<>();
+            detalle.put("codigo", status.value());
+            detalle.put("estado", status.name());
+            detalle.put("tipo", ex.getClass().getSimpleName());
+            detalle.put("detalle", ex.getMessage());
+            String mensaje = ex.getMessage() != null ? ex.getMessage() : mensajePublico;
+            return ResponseEntity.status(status).body(ApiResponse.error(mensaje, detalle));
+        }
+        return ResponseEntity.status(status).body(ApiResponse.error(mensajePublico));
+    }
+
+    /**
      * Errores de validacion de Bean Validation ({@code @Valid}): 400.
      *
      * <p>A diferencia del resto de manejadores, rellena el campo {@code data}
@@ -77,16 +108,16 @@ public class GlobalExceptionHandler {
 
     /** Recurso inexistente: 404. Los servicios lanzan EntityNotFoundException. */
     @ExceptionHandler(jakarta.persistence.EntityNotFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> manejarNoEncontrado(jakarta.persistence.EntityNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
+    public ResponseEntity<ApiResponse<Object>> manejarNoEncontrado(jakarta.persistence.EntityNotFoundException ex) {
+        return construirError(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
     }
 
     /** Reglas de negocio incumplidas: 400. Los servicios lanzan esta excepcion. */
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiResponse<Void>> manejarArgumentoInvalido(IllegalArgumentException ex) {
+    public ResponseEntity<ApiResponse<Object>> manejarArgumentoInvalido(IllegalArgumentException ex) {
         // El mensaje procede del propio codigo, no de la infraestructura,
         // por lo que es seguro mostrarlo.
-        return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
+        return construirError(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
     }
 
     /**
@@ -94,27 +125,23 @@ public class GlobalExceptionHandler {
      * valida en si misma, pero choca con la situacion actual del recurso.
      */
     @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<ApiResponse<Void>> manejarEstadoInvalido(IllegalStateException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.error(ex.getMessage()));
+    public ResponseEntity<ApiResponse<Object>> manejarEstadoInvalido(IllegalStateException ex) {
+        return construirError(HttpStatus.CONFLICT, ex.getMessage(), ex);
     }
 
     /** JSON mal formado o ilegible: 400. */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse<Void>> manejarCuerpoIlegible(HttpMessageNotReadableException ex) {
-        // No se propaga ex.getMessage() al cliente: revelaria nombres de clases
-        // internas. En el log basta el tipo de la causa para diagnosticar.
+    public ResponseEntity<ApiResponse<Object>> manejarCuerpoIlegible(HttpMessageNotReadableException ex) {
         log.debug("Cuerpo de peticion ilegible: {}", ex.getMostSpecificCause().getClass().getSimpleName());
-        return ResponseEntity.badRequest()
-                .body(ApiResponse.error(MessageConstants.PETICION_MAL_FORMADA));
+        return construirError(HttpStatus.BAD_REQUEST, MessageConstants.PETICION_MAL_FORMADA, ex);
     }
 
     /** Falta un parametro obligatorio en la query string: 400. */
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ApiResponse<Void>> manejarParametroFaltante(
+    public ResponseEntity<ApiResponse<Object>> manejarParametroFaltante(
             MissingServletRequestParameterException ex) {
-        return ResponseEntity.badRequest()
-                .body(ApiResponse.error("Falta el parametro obligatorio: " + ex.getParameterName()));
+        return construirError(HttpStatus.BAD_REQUEST,
+                "Falta el parametro obligatorio: " + ex.getParameterName(), ex);
     }
 
     /**
@@ -122,9 +149,9 @@ public class GlobalExceptionHandler {
      * 400. Se nombra el parametro, pero no el tipo esperado.
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ApiResponse<Void>> manejarTipoInvalido(MethodArgumentTypeMismatchException ex) {
-        return ResponseEntity.badRequest()
-                .body(ApiResponse.error("El valor de '" + ex.getName() + "' no tiene el formato esperado."));
+    public ResponseEntity<ApiResponse<Object>> manejarTipoInvalido(MethodArgumentTypeMismatchException ex) {
+        return construirError(HttpStatus.BAD_REQUEST,
+                "El valor de '" + ex.getName() + "' no tiene el formato esperado.", ex);
     }
 
     /**
@@ -133,10 +160,9 @@ public class GlobalExceptionHandler {
      * {@code @PreAuthorize} y las reglas por URL.
      */
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse<Void>> manejarAccesoDenegado(AccessDeniedException ex) {
+    public ResponseEntity<ApiResponse<Object>> manejarAccesoDenegado(AccessDeniedException ex) {
         log.warn("Acceso denegado a un recurso protegido.");
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error(MessageConstants.ACCESO_DENEGADO));
+        return construirError(HttpStatus.FORBIDDEN, MessageConstants.ACCESO_DENEGADO, ex);
     }
 
     /**
@@ -152,12 +178,10 @@ public class GlobalExceptionHandler {
      * para explicar que regla se incumplio.</p>
      */
     @ExceptionHandler(SecurityException.class)
-    public ResponseEntity<ApiResponse<Void>> manejarViolacionDePermisos(SecurityException ex) {
+    public ResponseEntity<ApiResponse<Object>> manejarViolacionDePermisos(SecurityException ex) {
         log.warn("Intento de operar sobre un recurso fuera del alcance del usuario: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error(ex.getMessage() != null
-                        ? ex.getMessage()
-                        : MessageConstants.ACCESO_DENEGADO));
+        return construirError(HttpStatus.FORBIDDEN,
+                ex.getMessage() != null ? ex.getMessage() : MessageConstants.ACCESO_DENEGADO, ex);
     }
 
     /**
@@ -166,9 +190,8 @@ public class GlobalExceptionHandler {
      * login, de "sin permisos", donde reintentar no sirve de nada.
      */
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ApiResponse<Void>> manejarAutenticacion(AuthenticationException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error(MessageConstants.AUTENTICACION_REQUERIDA));
+    public ResponseEntity<ApiResponse<Object>> manejarAutenticacion(AuthenticationException ex) {
+        return construirError(HttpStatus.UNAUTHORIZED, MessageConstants.AUTENTICACION_REQUERIDA, ex);
     }
 
     /**
@@ -182,12 +205,11 @@ public class GlobalExceptionHandler {
      * acabaria en el generico como un 500.</p>
      */
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> manejarRecursoNoEncontrado(
+    public ResponseEntity<ApiResponse<Object>> manejarRecursoNoEncontrado(
             org.springframework.web.servlet.resource.NoResourceFoundException ex) {
 
         log.debug("Ruta no encontrada: {}", ex.getResourcePath());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error(MessageConstants.RECURSO_NO_ENCONTRADO));
+        return construirError(HttpStatus.NOT_FOUND, MessageConstants.RECURSO_NO_ENCONTRADO, ex);
     }
 
     /**
@@ -195,9 +217,8 @@ public class GlobalExceptionHandler {
      * {@code spring.mvc.throw-exception-if-no-handler-found}.
      */
     @ExceptionHandler(NoHandlerFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> manejarRutaNoEncontrada(NoHandlerFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error(MessageConstants.RECURSO_NO_ENCONTRADO));
+    public ResponseEntity<ApiResponse<Object>> manejarRutaNoEncontrada(NoHandlerFoundException ex) {
+        return construirError(HttpStatus.NOT_FOUND, MessageConstants.RECURSO_NO_ENCONTRADO, ex);
     }
 
     /**
@@ -208,9 +229,8 @@ public class GlobalExceptionHandler {
      * traza de pila o un error de base de datos acabe en el navegador.</p>
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> manejarErrorInesperado(Exception ex) {
+    public ResponseEntity<ApiResponse<Object>> manejarErrorInesperado(Exception ex) {
         log.error("Error no controlado en la aplicacion", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error(MessageConstants.ERROR_INTERNO));
+        return construirError(HttpStatus.INTERNAL_SERVER_ERROR, MessageConstants.ERROR_INTERNO, ex);
     }
 }
