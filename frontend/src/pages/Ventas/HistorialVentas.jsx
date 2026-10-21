@@ -156,9 +156,9 @@ export default function HistorialVentas() {
           <MenuItem value="PAGADAS">Pagadas</MenuItem>
           <MenuItem value="PENDIENTES">Pendientes</MenuItem>
         </TextField>
-        <TextField size="small" type="date" label="Desde" InputLabelProps={{ shrink: true }}
+        <TextField size="small" type="date" label="Desde" slotProps={{ inputLabel: { shrink: true } }}
           value={desde} onChange={(e) => setDesde(e.target.value)} />
-        <TextField size="small" type="date" label="Hasta" InputLabelProps={{ shrink: true }}
+        <TextField size="small" type="date" label="Hasta" slotProps={{ inputLabel: { shrink: true } }}
           value={hasta} onChange={(e) => setHasta(e.target.value)} />
       </Stack>
 
