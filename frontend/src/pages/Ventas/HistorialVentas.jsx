@@ -139,12 +139,10 @@ export default function HistorialVentas() {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
-      <Box sx={{ mb: 1.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
         <ReceiptLongIcon color="primary" fontSize="large" />
+        <Typography variant="h4" fontWeight="bold">Historial de ventas</Typography>
       </Box>
-      <Typography variant="h4" fontWeight="bold" sx={{ mb: 1.5 }}>
-        Historial de ventas
-      </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
         Todas las ventas registradas, con su detalle, estado y saldo pendiente.
       </Typography>

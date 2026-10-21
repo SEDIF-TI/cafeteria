@@ -106,7 +106,10 @@ export default function MenuCafeteria() {
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box mb={3}>
-        <Typography variant="h5" fontWeight="bold">Menú y Carta de Cafetería</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+          <RestaurantMenuIcon color="primary" fontSize="large" />
+          <Typography variant="h4" fontWeight="bold">Menú y Carta de Cafetería</Typography>
+        </Box>
         <Typography variant="body2" color="text.secondary">
           Activa o pausa la visibilidad de los platillos en la caja y gestiona la composición de insumos.
         </Typography>

@@ -91,11 +91,11 @@ export default function Caja() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
-      <Box display="flex" alignItems="center" gap={1} mb={1}>
-        <PointOfSaleIcon color="primary" />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+        <PointOfSaleIcon color="primary" fontSize="large" />
         <Typography variant="h4" fontWeight="bold">Caja y turnos</Typography>
       </Box>
-      <Typography variant="body2" color="text.secondary" mb={2}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
         Abre un turno con el fondo de caja, cobra durante el día y ciérralo con el arqueo del efectivo.
       </Typography>
 

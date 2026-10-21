@@ -123,10 +123,13 @@ export default function Deudores() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4} flexWrap="wrap" gap={2}>
-        <Typography variant="h4" component="h1" fontWeight="bold" color="text.primary">
-          Control de Deudores / Adeudos
-        </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <PaymentIcon color="primary" fontSize="large" />
+          <Typography variant="h4" component="h1" fontWeight="bold" color="text.primary">
+            Control de Deudores / Adeudos
+          </Typography>
+        </Box>
         <TextField
           placeholder="Buscar por empleado o área..."
           size="small"

@@ -230,11 +230,14 @@ export default function Ventas() {
     >
       {/* ================= COLUMNA IZQUIERDA: CATÁLOGO ================= */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Box mb={4} display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2}>
+        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
           <Box>
-            <Typography variant="h4" fontWeight="900" color="text.primary" gutterBottom>
-              Punto de Venta
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+              <PointOfSaleIcon color="primary" fontSize="large" />
+              <Typography variant="h4" fontWeight="900" color="text.primary">
+                Punto de Venta
+              </Typography>
+            </Box>
             <Typography variant="subtitle1" color="text.secondary">
               Selecciona los productos para agregarlos al ticket de venta.
             </Typography>

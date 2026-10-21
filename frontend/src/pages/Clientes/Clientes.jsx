@@ -57,11 +57,11 @@ export default function Clientes() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
-      <Box display="flex" alignItems="center" gap={1} mb={1}>
-        <PeopleIcon color="primary" />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+        <PeopleIcon color="primary" fontSize="large" />
         <Typography variant="h4" fontWeight="bold">Clientes</Typography>
       </Box>
-      <Typography variant="body2" color="text.secondary" mb={2}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
         Empleados registrados. Puedes restablecer su contraseña del portal a la temporal (código + CAFE).
       </Typography>
 

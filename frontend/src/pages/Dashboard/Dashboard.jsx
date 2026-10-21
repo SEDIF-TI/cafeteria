@@ -6,6 +6,7 @@ import {
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import DashboardIcon from '@mui/icons-material/Dashboard';
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend
@@ -137,9 +138,12 @@ export default function Dashboard() {
 
   return (
     <Box sx={{ width: '100%', p: { xs: 2, md: 3 } }}>
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2} mb={3}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">Panel Principal</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+            <DashboardIcon color="primary" fontSize="large" />
+            <Typography variant="h4" fontWeight="bold">Panel Principal</Typography>
+          </Box>
           <Typography variant="subtitle1" color="text.secondary">
             Indicadores de ventas, crédito, inventario y cubiertos para la toma de decisiones.
           </Typography>
