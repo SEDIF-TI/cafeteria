@@ -138,16 +138,18 @@ export default function HistorialVentas() {
   const totalPendiente = filtradas.reduce((acc, v) => acc + Number(v.saldoPendiente || 0), 0);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      <Box display="flex" alignItems="center" gap={1} mb={1}>
-        <ReceiptLongIcon color="primary" />
-        <Typography variant="h4" fontWeight="bold">Historial de ventas</Typography>
+    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
+      <Box sx={{ mb: 1.5 }}>
+        <ReceiptLongIcon color="primary" fontSize="large" />
       </Box>
-      <Typography variant="body2" color="text.secondary" mb={2}>
+      <Typography variant="h4" fontWeight="bold" sx={{ mb: 1.5 }}>
+        Historial de ventas
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
         Todas las ventas registradas, con su detalle, estado y saldo pendiente.
       </Typography>
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} mb={2}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 3 }}>
         <TextField size="small" placeholder="Buscar cliente, área, ticket o método" value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)} sx={{ minWidth: 260 }}
           InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }} />
