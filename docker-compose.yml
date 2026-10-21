@@ -1,4 +1,11 @@
-version: '3.8'
+# ===========================================================================
+# Orquestacion completa: base de datos + backend (Spring Boot) + frontend (nginx)
+#
+#   Levantar todo:        docker compose up -d --build
+#   Solo la base (dev):   docker compose up -d db-cafeteria
+#
+# Las variables sensibles se leen de .env (no versionado).
+# ===========================================================================
 
 services:
   db-cafeteria:
@@ -11,12 +18,49 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: America/Mexico_City
     ports:
-      # Exponemos el puerto 5437 en tu PC para que no choque con 
-      # otras bases de datos locales o contenedores previos.
+      # Expuesto en 5437 para herramientas locales. En el servidor conviene
+      # quitar esta linea para que la base NO sea accesible desde la red.
       - "5437:5432"
     volumes:
       - pgdata_cafeteria:/var/lib/postgresql/data
+    networks:
+      - cafeteria-net
+
+  backend:
+    build: ./backend
+    container_name: cafeteria_backend
+    restart: always
+    depends_on:
+      - db-cafeteria
+    # Carga POSTGRES_*, APP_JWT_SECRET y MAIL_* desde .env...
+    env_file: .env
+    # ...pero dentro de Docker la base se alcanza por el nombre del servicio,
+    # no por localhost. Estas variables tienen prioridad sobre el .env.
+    environment:
+      DB_HOST: db-cafeteria
+      DB_PORT: 5432
+      TZ: America/Mexico_City
+    networks:
+      - cafeteria-net
+    # No se expone el 8080 al host: el frontend (nginx) lo alcanza por la red interna.
+
+  frontend:
+    build: ./frontend
+    container_name: cafeteria_frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      # Puerto web en el host. Por defecto 8090 (para no ocupar el 80).
+      # En el servidor se puede fijar WEB_PORT=80 o poner un proxy delante.
+      - "${WEB_PORT:-8090}:80"
+    networks:
+      - cafeteria-net
 
 volumes:
   pgdata_cafeteria:
     name: pgdata_cafeteria
+
+networks:
+  cafeteria-net:
+    name: cafeteria-net
