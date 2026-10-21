@@ -53,6 +53,11 @@ public class Venta {
     private BigDecimal montoAbonado = BigDecimal.ZERO;
 
     public BigDecimal getSaldoPendiente() {
+        // Una venta pagada no debe nada, sin importar lo que tenga montoAbonado.
+        // (Las ventas en efectivo quedan PAGADO pero su montoAbonado puede ser 0.)
+        if (estado == EstadoVenta.PAGADO) {
+            return BigDecimal.ZERO;
+        }
         BigDecimal abonado = montoAbonado != null ? montoAbonado : BigDecimal.ZERO;
         return total == null ? BigDecimal.ZERO : total.subtract(abonado);
     }

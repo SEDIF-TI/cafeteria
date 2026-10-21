@@ -147,6 +147,10 @@ public class VentaService {
 
         // 3. Actualizar total definitivo de la venta
         ventaGuardada.setTotal(totalVenta);
+        // Una venta que no es a credito queda saldada: el abono iguala al total.
+        if (ventaGuardada.getEstado() != EstadoVenta.PENDIENTE) {
+            ventaGuardada.setMontoAbonado(totalVenta);
+        }
         ventaRepository.save(ventaGuardada);
 
         // 3b. Registrar el movimiento en el turno segun la forma de pago.
