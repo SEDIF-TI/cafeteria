@@ -27,6 +27,7 @@ services:
       - cafeteria-net
 
   backend:
+    image: cafeteria-backend:latest
     build: ./backend
     container_name: cafeteria_backend
     restart: always
@@ -45,6 +46,7 @@ services:
     # No se expone el 8080 al host: el frontend (nginx) lo alcanza por la red interna.
 
   frontend:
+    image: cafeteria-frontend:latest
     build: ./frontend
     container_name: cafeteria_frontend
     restart: always
