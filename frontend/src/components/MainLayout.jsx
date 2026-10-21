@@ -32,6 +32,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 
 import { AuthContext } from '../context/AuthContext';
+import PieDePagina from './PieDePagina';
 
 const drawerWidth = 260;
 
@@ -212,7 +213,10 @@ export default function MainLayout() {
           backgroundColor: '#f8fafc',
           minHeight: 'calc(100vh - 64px)',
           boxSizing: 'border-box', // OBLIGA a que el padding se calcule hacia adentro
-          overflowX: 'hidden' // CLAVE: Evita que las gráficas rompan el contenedor
+          overflowX: 'hidden', // CLAVE: Evita que las gráficas rompan el contenedor
+          // Columna flex para que el pie de página (mt: auto) quede siempre al fondo.
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
         {/* Contenedor que centra y limita el ancho en pantallas grandes, para que
@@ -220,6 +224,9 @@ export default function MainLayout() {
         <Box sx={{ maxWidth: 1400, mx: 'auto', width: '100%' }}>
           <Outlet />
         </Box>
+
+        {/* Pie de página común a todas las vistas */}
+        <PieDePagina />
       </Box>
     </Box>
   );
