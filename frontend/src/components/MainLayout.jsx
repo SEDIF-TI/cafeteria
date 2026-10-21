@@ -202,7 +202,11 @@ export default function MainLayout() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3, // Reduje ligeramente el padding de 4 a 3 para que respire mejor
+          // Espaciado generoso y responsivo para que el contenido respire,
+          // con mas aire arriba (el contenido ya no queda pegado al AppBar).
+          px: { xs: 2, sm: 3, md: 4 },
+          pt: { xs: 3, sm: 4, md: 5 },
+          pb: { xs: 4, sm: 6 },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           mt: '64px',
           backgroundColor: '#f8fafc',
@@ -211,7 +215,11 @@ export default function MainLayout() {
           overflowX: 'hidden' // CLAVE: Evita que las gráficas rompan el contenedor
         }}
       >
-        <Outlet />
+        {/* Contenedor que centra y limita el ancho en pantallas grandes, para que
+            el contenido no quede estirado de borde a borde. */}
+        <Box sx={{ maxWidth: 1400, mx: 'auto', width: '100%' }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );
