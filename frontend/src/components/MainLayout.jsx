@@ -42,6 +42,13 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Rol del usuario en sesion (para mostrar el menu segun su perfil).
+  const rolUsuario = (() => {
+    try { return (JSON.parse(localStorage.getItem('user') || '{}').rol || '').toUpperCase(); }
+    catch { return ''; }
+  })();
+  const esAdmin = rolUsuario.includes('ADMIN');
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -58,20 +65,21 @@ export default function MainLayout() {
     navigate('/login', { replace: true });
   };
 
+  // soloAdmin: true -> la opcion solo se muestra a perfiles de administrador.
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Categorías', icon: <CategoryIcon />, path: '/dashboard/categorias' },
-    { text: 'Menú de Cafetería', icon: <RestaurantMenuIcon />, path: '/dashboard/menu' },
+    { text: 'Categorías', icon: <CategoryIcon />, path: '/dashboard/categorias', soloAdmin: true },
+    { text: 'Menú de Cafetería', icon: <RestaurantMenuIcon />, path: '/dashboard/menu', soloAdmin: true },
     { text: 'Punto de Venta', icon: <PointOfSaleIcon />, path: '/dashboard/ventas' },
     { text: 'Caja y Turnos', icon: <AccountBalanceWalletIcon />, path: '/dashboard/caja' },
     { text: 'Historial de Ventas', icon: <ReceiptLongIcon />, path: '/dashboard/historial-ventas' },
-    { text: 'Inventario (Prod. Terminados)', icon: <InventoryIcon />, path: '/dashboard/inventario' },
-    { text: 'Utensilios (Cubiertos)', icon: <RestaurantIcon />, path: '/dashboard/utensilios' },
-    { text: 'Recetas', icon: <RestaurantMenuIcon />, path: '/dashboard/recetas' },
-    { text: 'Personal', icon: <GroupIcon />, path: '/dashboard/usuarios' },
+    { text: 'Inventario (Prod. Terminados)', icon: <InventoryIcon />, path: '/dashboard/inventario', soloAdmin: true },
+    { text: 'Utensilios (Cubiertos)', icon: <RestaurantIcon />, path: '/dashboard/utensilios', soloAdmin: true },
+    { text: 'Recetas', icon: <RestaurantMenuIcon />, path: '/dashboard/recetas', soloAdmin: true },
+    { text: 'Personal', icon: <GroupIcon />, path: '/dashboard/usuarios', soloAdmin: true },
     { text: 'Deudores', icon: <MoneyOffIcon />, path: '/dashboard/deudores' },
     { text: 'Clientes', icon: <PeopleIcon />, path: '/dashboard/clientes' },
-  ];
+  ].filter((item) => esAdmin || !item.soloAdmin);
 
   const drawerContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
