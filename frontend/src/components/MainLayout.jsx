@@ -74,7 +74,7 @@ export default function MainLayout() {
     { text: 'Caja y Turnos', icon: <AccountBalanceWalletIcon />, path: '/dashboard/caja' },
     { text: 'Historial de Ventas', icon: <ReceiptLongIcon />, path: '/dashboard/historial-ventas' },
     { text: 'Inventario (Prod. Terminados)', icon: <InventoryIcon />, path: '/dashboard/inventario', soloAdmin: true },
-    { text: 'Utensilios (Cubiertos)', icon: <RestaurantIcon />, path: '/dashboard/utensilios', soloAdmin: true },
+    { text: 'Utensilios (Cubiertos)', icon: <RestaurantIcon />, path: '/dashboard/utensilios' },
     { text: 'Recetas', icon: <RestaurantMenuIcon />, path: '/dashboard/recetas', soloAdmin: true },
     { text: 'Personal', icon: <GroupIcon />, path: '/dashboard/usuarios', soloAdmin: true },
     { text: 'Deudores', icon: <MoneyOffIcon />, path: '/dashboard/deudores' },

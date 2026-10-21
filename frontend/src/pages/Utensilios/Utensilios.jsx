@@ -26,7 +26,13 @@ const formatearFecha = (f) => (f ? new Date(f).toLocaleString('es-MX') : '—');
 
 export default function Utensilios() {
   const { notificar, cargar, finalizarCarga } = useFeedback();
-  const [tab, setTab] = useState(0);
+  // Solo los administradores gestionan el catalogo; los cajeros ven y devuelven.
+  const esAdmin = (() => {
+    try { return (JSON.parse(localStorage.getItem('user') || '{}').rol || '').toUpperCase().includes('ADMIN'); }
+    catch { return false; }
+  })();
+  // El cajero aterriza directo en la pestana de devoluciones.
+  const [tab, setTab] = useState(esAdmin ? 0 : 1);
   const [utensilios, setUtensilios] = useState([]);
   const [prestamos, setPrestamos] = useState([]);
   const [soloAbiertos, setSoloAbiertos] = useState(true);
@@ -171,11 +177,13 @@ export default function Utensilios() {
 
       {tab === 0 && (
         <Paper sx={{ p: 2 }}>
-          <Box display="flex" justifyContent="flex-end" mb={2}>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => abrirUtensilio()}>
-              Nuevo utensilio
-            </Button>
-          </Box>
+          {esAdmin && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => abrirUtensilio()}>
+                Nuevo utensilio
+              </Button>
+            </Box>
+          )}
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -201,8 +209,12 @@ export default function Utensilios() {
                       <Chip size="small" label={u.activo ? 'Activo' : 'Inactivo'} color={u.activo ? 'success' : 'default'} />
                     </TableCell>
                     <TableCell align="center">
-                      <Tooltip title="Editar"><IconButton onClick={() => abrirUtensilio(u)}><EditIcon /></IconButton></Tooltip>
-                      <Tooltip title="Activar / desactivar"><IconButton onClick={() => cambiarEstado(u.id)}><ToggleOnIcon /></IconButton></Tooltip>
+                      {esAdmin ? (
+                        <>
+                          <Tooltip title="Editar"><IconButton onClick={() => abrirUtensilio(u)}><EditIcon /></IconButton></Tooltip>
+                          <Tooltip title="Activar / desactivar"><IconButton onClick={() => cambiarEstado(u.id)}><ToggleOnIcon /></IconButton></Tooltip>
+                        </>
+                      ) : '—'}
                     </TableCell>
                   </TableRow>
                 ))}
