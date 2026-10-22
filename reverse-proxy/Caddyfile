@@ -1,0 +1,86 @@
+# ===========================================================================
+#  Caddy - Reverse proxy / terminación HTTPS para los proyectos del servidor
+# ===========================================================================
+#
+#  Qué hace:
+#   - Pone UNA sola puerta de entrada (este proxy) delante de todos los
+#     contenedores.
+#   - Enruta por SUBDOMINIO hacia cada app.
+#   - En producción, saca y renueva SOLO el certificado (adiós "No seguro").
+#
+#  Cada app sigue hablando HTTP por dentro; el cifrado vive aquí.
+#
+#  --------------------------------------------------------------------------
+#  BLOQUE 1: LOCAL / PRUEBAS  (lo que funciona HOY, sin dominio)
+#  --------------------------------------------------------------------------
+#  Accede en el navegador a:
+#     http://localhost:8080     -> la app, vía proxy (sin cifrar)
+#     https://localhost:8443    -> la app, vía proxy con HTTPS de PRUEBA
+#
+#  En :8443 Caddy usa su CA interna (certificado local): el navegador dirá
+#  "no confiable" porque ese CA no es público. Es NORMAL: solo sirve para
+#  comprobar que el flujo HTTPS -> contenedor funciona. En producción se
+#  reemplaza por el certificado real (Bloque 2) y el aviso desaparece.
+
+http://localhost:8080 {
+	encode gzip
+	reverse_proxy frontend:80
+}
+
+https://localhost:8443 {
+	tls internal
+	encode gzip
+	reverse_proxy frontend:80
+}
+
+# ---------------------------------------------------------------------------
+#  BLOQUE 2: PRODUCCIÓN  (descomentar cuando redes entregue dominio + DNS)
+# ---------------------------------------------------------------------------
+#
+#  Reemplaza "suzona.gob.mx" por el dominio real que asigne la dependencia.
+#
+#  >>> Opción A (más simple): un certificado por subdominio, validación
+#      automática HTTP-01. NO necesita plugins. Sirve para subdominios
+#      PÚBLICOS (el puerto 80 debe llegar desde internet vía el NAT de redes).
+#
+# cafeteria.suzona.gob.mx {
+# 	encode gzip
+# 	reverse_proxy frontend:80
+# }
+#
+# puntoventa.suzona.gob.mx {
+# 	encode gzip
+# 	reverse_proxy frontend:80
+# }
+#
+#  >>> Opción B (recomendada si habrá MUCHOS subdominios): UN certificado
+#      WILDCARD *.suzona.gob.mx con validación DNS-01.
+#      Requiere:
+#        - una imagen de Caddy compilada con el plugin del proveedor DNS
+#          (ej. caddy-dns/cloudflare, /route53, /azure, etc. segun quien
+#          administre la zona .gob.mx), y
+#        - un token de API del DNS en la variable DNS_API_TOKEN (archivo .env).
+#      Ventaja: un solo cert cubre TODAS las zonas y se renueva solo, incluso
+#      para apps que NO estan expuestas a internet (intranet).
+#
+# *.suzona.gob.mx {
+# 	tls {
+# 		dns PROVEEDOR {env.DNS_API_TOKEN}
+# 	}
+# 	encode gzip
+#
+# 	@cafeteria host cafeteria.suzona.gob.mx
+# 	handle @cafeteria {
+# 		reverse_proxy frontend:80
+# 	}
+#
+# 	@puntoventa host puntoventa.suzona.gob.mx
+# 	handle @puntoventa {
+# 		reverse_proxy frontend:80
+# 	}
+#
+# 	# Cualquier otro subdominio aún no configurado:
+# 	handle {
+# 		respond "Subdominio no configurado" 404
+# 	}
+# }

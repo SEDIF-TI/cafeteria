@@ -59,9 +59,37 @@ services:
     networks:
       - cafeteria-net
 
+  # Reverse proxy / terminacion HTTPS. Pone una sola puerta de entrada delante
+  # de las apps y enruta por subdominio. En produccion saca y renueva el
+  # certificado solo (ver reverse-proxy/Caddyfile).
+  caddy:
+    image: caddy:2-alpine
+    container_name: cafeteria_caddy
+    restart: always
+    depends_on:
+      - frontend
+    ports:
+      # Puertos de PRUEBA local (no chocan con el 8090 del frontend).
+      - "${PROXY_HTTP_PORT:-8080}:8080"
+      - "${PROXY_HTTPS_PORT:-8443}:8443"
+      # En PRODUCCION se usan 80 y 443 (descomentar y, de preferencia, quitar
+      # los de prueba de arriba):
+      # - "80:80"
+      # - "443:443"
+    volumes:
+      - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # certificados y estado de ACME (persistente)
+      - caddy_config:/config
+    networks:
+      - cafeteria-net
+
 volumes:
   pgdata_cafeteria:
     name: pgdata_cafeteria
+  caddy_data:
+    name: caddy_data
+  caddy_config:
+    name: caddy_config
 
 networks:
   cafeteria-net:
