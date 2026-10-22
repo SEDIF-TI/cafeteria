@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Grid, Paper, Typography, Box, Card, CardContent, CardActionArea,
-  Button, IconButton, TextField, MenuItem, Dialog, DialogTitle, 
-  DialogContent, DialogActions, Chip, Alert, Stack, Divider, Autocomplete,
-  FormControlLabel, Switch
+  Button, IconButton, TextField, MenuItem, Chip, Alert, Stack, Divider, Autocomplete,
+  FormControlLabel, Switch, Collapse
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -11,7 +10,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import RemoveShoppingCartIcon from '@mui/icons-material/RemoveShoppingCart';
-import QrCodeIcon from '@mui/icons-material/QrCode'; // Importación agregada
+import QrCodeIcon from '@mui/icons-material/QrCode';
+import PersonIcon from '@mui/icons-material/Person';
 
 import ModalQRCliente from '../registro-cliente/ModalQRCliente';
 import api from '../../api/axiosClient';
@@ -23,10 +23,9 @@ export default function Ventas() {
   const [carrito, setCarrito] = useState([]);
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
   const [montoRecibido, setMontoRecibido] = useState('');
-  const [openCobroDialog, setOpenCobroDialog] = useState(false);
   const [loading, setLoading] = useState(false);
   const [clientes, setClientes] = useState([]);
-  
+
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [openQRModal, setOpenQRModal] = useState(false);
 
@@ -168,8 +167,8 @@ export default function Ventas() {
       usuarioSesionId = 4;
     }
 
-    const clienteIdCalculado = clienteSeleccionado 
-      ? Number(clienteSeleccionado.id || clienteSeleccionado.clienteId || clienteSeleccionado.pnId) 
+    const clienteIdCalculado = clienteSeleccionado
+      ? Number(clienteSeleccionado.id || clienteSeleccionado.clienteId || clienteSeleccionado.pnId)
       : null;
 
     const payload = {
@@ -200,7 +199,6 @@ export default function Ventas() {
       setMontoRecibido('');
       setClienteSeleccionado(null);
       setMetodoPago('EFECTIVO');
-      setOpenCobroDialog(false);
       cargarCatalogos();
       notificar('¡Venta realizada con éxito!', 'success');
     } catch (error) {
@@ -214,16 +212,21 @@ export default function Ventas() {
     }
   };
 
+  const totalArticulos = carrito.reduce((acc, i) => acc + i.cantidad, 0);
+  const faltaMonto = metodoPago === 'EFECTIVO' && (isNaN(parseFloat(montoRecibido)) || parseFloat(montoRecibido) < totalVenta);
+  const faltaClienteDeuda = metodoPago === 'DEUDA' && !clienteSeleccionado;
+  const puedeCobrar = carrito.length > 0 && hayTurno && !faltaMonto && !faltaClienteDeuda && !loading;
+
   return (
-    <Box 
-      sx={{ 
-        display: 'flex', 
-        flexDirection: { xs: 'column', md: 'row' }, 
-        width: '100%', 
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        width: '100%',
         minHeight: '100vh',
         bgcolor: '#f4f6f8',
-        gap: { xs: 3, lg: 4 }, 
-        p: { xs: 2, md: 4 }, 
+        gap: { xs: 3, lg: 4 },
+        p: { xs: 2, md: 4 },
         boxSizing: 'border-box',
         alignItems: 'flex-start'
       }}
@@ -261,7 +264,7 @@ export default function Ventas() {
             QR Registro Cliente
           </Button>
         </Box>
-        
+
         <Grid container spacing={3}>
           {productos.map((prod) => {
             const stock = Number(prod.stockDisponible) || 0;
@@ -269,9 +272,9 @@ export default function Ventas() {
 
             return (
               <Grid item xs={12} sm={6} md={6} lg={4} xl={3} key={prod.id}>
-                <Card 
-                  elevation={0} 
-                  sx={{ 
+                <Card
+                  elevation={0}
+                  sx={{
                     height: '100%',
                     minHeight: '140px',
                     border: '2px solid',
@@ -288,16 +291,16 @@ export default function Ventas() {
                     }
                   }}
                 >
-                  <CardActionArea 
-                    onClick={() => !agotado && agregarAlCarrito(prod)} 
+                  <CardActionArea
+                    onClick={() => !agotado && agregarAlCarrito(prod)}
                     disabled={agotado}
                     sx={{ height: '100%', p: 2.5 }}
                   >
                     <CardContent sx={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
                       <Box mb={2}>
-                        <Typography 
-                          variant="h6" 
-                          fontWeight="bold" 
+                        <Typography
+                          variant="h6"
+                          fontWeight="bold"
                           sx={{ lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
                         >
                           {prod.nombre}
@@ -323,16 +326,16 @@ export default function Ventas() {
         </Grid>
       </Box>
 
-      {/* ================= COLUMNA DERECHA: TICKET DE VENTA ================= */}
-      <Box sx={{ 
-        width: { xs: '100%', md: '450px', lg: '500px', xl: '35%' }, 
+      {/* ================= COLUMNA DERECHA: TICKET + COBRO ================= */}
+      <Box sx={{
+        width: { xs: '100%', md: '450px', lg: '500px', xl: '38%' },
         flexShrink: 0,
         position: { md: 'sticky' },
         top: 88,
         alignSelf: { md: 'stretch' }
       }}>
-        <Paper 
-          elevation={4} 
+        <Paper
+          elevation={4}
           sx={{
             width: '100%',
             borderRadius: 4,
@@ -342,10 +345,10 @@ export default function Ventas() {
           }}
         >
           {/* Cabecera del Ticket */}
-          <Stack 
-            direction="row" 
-            spacing={2} 
-            alignItems="center" 
+          <Stack
+            direction="row"
+            spacing={2}
+            alignItems="center"
             justifyContent="space-between"
             sx={{ p: 3, bgcolor: '#ffffff', borderBottom: '1px solid #e9ecef' }}
           >
@@ -355,157 +358,14 @@ export default function Ventas() {
                 Ticket de Venta
               </Typography>
             </Stack>
-            <Chip 
-              label={`${carrito.reduce((acc, i) => acc + i.cantidad, 0)} arts.`} 
-              sx={{ fontWeight: 'bold', bgcolor: '#f1f3f5', fontSize: '1rem', color: '#495057' }} 
+            <Chip
+              label={`${totalArticulos} arts.`}
+              sx={{ fontWeight: 'bold', bgcolor: '#f1f3f5', fontSize: '1rem', color: '#495057' }}
             />
           </Stack>
 
-          {carrito.length === 0 ? (
-            <Box 
-              sx={{ 
-                flex: 1, 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                p: 4, 
-                bgcolor: '#fafafa',
-                width: '100%',
-                minHeight: '300px'
-              }}
-            >
-              <RemoveShoppingCartIcon sx={{ fontSize: 80, color: '#dee2e6', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary" align="center" fontWeight="500">
-                El ticket está vacío.
-              </Typography>
-              <Typography variant="body1" color="text.secondary" align="center" mt={1}>
-                Selecciona productos del catálogo para comenzar.
-              </Typography>
-            </Box>
-          ) : (
-            <Box display="flex" flexDirection="column">
-              <Stack 
-                direction="row" 
-                alignItems="center" 
-                sx={{ px: 3, py: 1.5, bgcolor: '#f8f9fa', borderBottom: '1px solid #e9ecef' }}
-              >
-                <Typography variant="subtitle2" fontWeight="700" color="text.secondary" sx={{ flex: 1 }}>PRODUCTO</Typography>
-                <Typography variant="subtitle2" fontWeight="700" color="text.secondary" sx={{ width: '120px', textAlign: 'center' }}>CANTIDAD</Typography>
-                <Typography variant="subtitle2" fontWeight="700" color="text.secondary" sx={{ width: '90px', textAlign: 'right' }}>SUBTOTAL</Typography>
-                <Box sx={{ width: '40px' }}></Box>
-              </Stack>
-
-              <Box sx={{ maxHeight: { xs: '42vh', md: 'calc(100vh - 370px)' }, minHeight: '120px', overflowY: 'auto', '&::-webkit-scrollbar': { width: '8px' }, '&::-webkit-scrollbar-thumb': { bgcolor: '#ced4da', borderRadius: '4px' } }}>
-                {carrito.map((item) => (
-                  <Stack 
-                    key={item.productoId} 
-                    direction="row" 
-                    alignItems="center" 
-                    sx={{ 
-                      px: 3, py: 2.5, 
-                      borderBottom: '1px solid #f1f3f5',
-                      '&:hover': { bgcolor: '#fdfdfd' } 
-                    }}
-                  >
-                    <Box sx={{ flex: 1, minWidth: 0, pr: 2 }}>
-                      <Typography 
-                        variant="subtitle1" 
-                        fontWeight="700" 
-                        color="text.primary"
-                        sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                      >
-                        {item.nombre}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" fontWeight="500">
-                        ${item.precio.toFixed(2)} c/u
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ width: '120px', display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
-                      <Stack 
-                        direction="row" 
-                        alignItems="center" 
-                        sx={{ border: '1px solid #dee2e6', borderRadius: 2, overflow: 'hidden', bgcolor: '#ffffff' }}
-                      >
-                        <IconButton 
-                          onClick={() => cambiarCantidad(item.productoId, -1)} 
-                          sx={{ color: 'text.secondary', p: 1, borderRadius: 0, bgcolor: '#f8f9fa', '&:hover': { bgcolor: '#e9ecef' } }}
-                        >
-                          <RemoveIcon fontSize="small" />
-                        </IconButton>
-                        <Typography variant="subtitle1" fontWeight="bold" sx={{ width: '36px', textAlign: 'center' }}>
-                          {item.cantidad}
-                        </Typography>
-                        <IconButton 
-                          onClick={() => cambiarCantidad(item.productoId, 1)} 
-                          sx={{ color: 'text.primary', p: 1, borderRadius: 0, bgcolor: '#f8f9fa', '&:hover': { bgcolor: '#e9ecef' } }}
-                        >
-                          <AddIcon fontSize="small" />
-                        </IconButton>
-                      </Stack>
-                    </Box>
-
-                    <Box sx={{ width: '90px', textAlign: 'right', flexShrink: 0 }}>
-                      <Typography variant="subtitle1" fontWeight="900" color="text.primary">
-                        ${(item.precio * item.cantidad).toFixed(2)}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ width: '40px', textAlign: 'right', pl: 1, flexShrink: 0 }}>
-                      <IconButton color="error" onClick={() => eliminarDelCarrito(item.productoId)} sx={{ p: 1 }}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </Stack>
-                ))}
-              </Box>
-
-              <Box sx={{ p: 3, bgcolor: '#ffffff', borderTop: '1px solid #e9ecef', boxShadow: '0 -4px 20px rgba(0,0,0,0.03)' }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3, p: 2.5, bgcolor: '#f8f9fa', borderRadius: 3 }}>
-                  <Typography variant="h6" fontWeight="700" color="text.secondary">
-                    TOTAL A PAGAR
-                  </Typography>
-                  <Typography variant="h3" fontWeight="900" color="#691c32">
-                    ${totalVenta.toFixed(2)}
-                  </Typography>
-                </Stack>
-
-                <Button
-                  variant="contained"
-                  fullWidth
-                  size="large"
-                  startIcon={<PointOfSaleIcon sx={{ fontSize: '1.8rem !important' }} />}
-                  onClick={() => setOpenCobroDialog(true)}
-                  sx={{ 
-                    backgroundColor: 'primary.main', 
-                    py: 2,
-                    borderRadius: 3,
-                    fontWeight: '800',
-                    fontSize: '1.2rem',
-                    textTransform: 'none',
-                    boxShadow: '0 6px 16px rgba(105, 28, 50, 0.25)',
-                    '&:hover': { backgroundColor: 'primary.dark', shadow: '0 8px 24px rgba(105, 28, 50, 0.35)' }
-                  }}
-                >
-                  Cobrar Venta
-                </Button>
-              </Box>
-            </Box>
-          )}
-        </Paper>
-      </Box>
-
-      {/* ================= MODAL PARA CONFIRMAR COBRO ================= */}
-      <Dialog open={openCobroDialog} onClose={() => setOpenCobroDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 4, p: 1 } }}>
-        <DialogTitle sx={{ fontWeight: '800', fontSize: '1.5rem', pb: 1, textAlign: 'center' }}>Confirmar Pago</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="h3" textAlign="center" fontWeight="900" color="#691c32" sx={{ mb: 4 }}>
-              Total: ${totalVenta.toFixed(2)}
-            </Typography>
-            <Divider sx={{ mb: 4 }} />
-            
+          {/* Cliente: siempre visible en el panel */}
+          <Box sx={{ px: 3, pt: 2.5, pb: 1 }}>
             <Autocomplete
               options={clientes}
               getOptionLabel={(option) => {
@@ -525,9 +385,8 @@ export default function Ventas() {
                 return options.filter((c) => {
                   const matchNombre = c.nombre?.toLowerCase().includes(term);
                   const matchControl = c.numeroControl?.toString().toLowerCase().includes(term);
-                  const matchTel = c.telefono?.toString().toLowerCase().includes(term);
                   const matchArea = c.area?.toLowerCase().includes(term);
-                  return matchNombre || matchControl || matchTel || matchArea;
+                  return matchNombre || matchControl || matchArea;
                 });
               }}
               value={clienteSeleccionado}
@@ -537,140 +396,291 @@ export default function Ventas() {
                 setCodigoEmpleado(newValue?.numeroControl || '');
                 setAreaDestino(newValue?.area || '');
               }}
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Cliente (Nombre o N° de Control)" 
-                  placeholder="Dejar en blanco para Público General" 
-                  fullWidth 
-                  sx={{ mb: 3 }}
-                  InputProps={{
-                    ...params.InputProps,
-                    sx: { borderRadius: 2 }
-                  }}
-                />
-              )}
+              renderInput={(params) => {
+                // En esta version de MUI params.InputProps puede venir undefined:
+                // lo normalizamos para no reventar al leer startAdornment.
+                const inputProps = params.InputProps || {};
+                return (
+                  <TextField
+                    {...params}
+                    label="Cliente (Nombre o N° de Control)"
+                    placeholder="En blanco = Público General"
+                    fullWidth
+                    size="small"
+                    InputProps={{
+                      ...inputProps,
+                      startAdornment: (
+                        <>
+                          <PersonIcon sx={{ color: 'text.disabled', ml: 0.5, mr: 0.5 }} fontSize="small" />
+                          {inputProps.startAdornment}
+                        </>
+                      ),
+                      sx: { borderRadius: 2 }
+                    }}
+                  />
+                );
+              }}
               noOptionsText="No se encontraron clientes"
             />
+          </Box>
 
-            <TextField 
-              select 
-              label="Método de Pago" 
-              fullWidth 
-              value={metodoPago} 
-              onChange={(e) => setMetodoPago(e.target.value)}
-              InputProps={{ sx: { fontSize: '1.1rem', borderRadius: 2 } }}
+          {carrito.length === 0 ? (
+            <Box
+              sx={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                p: 4,
+                bgcolor: '#fafafa',
+                width: '100%',
+                minHeight: '240px'
+              }}
             >
-              <MenuItem value="EFECTIVO" sx={{ fontSize: '1.1rem', py: 1.5 }}>Efectivo</MenuItem>
-              <MenuItem value="TARJETA" sx={{ fontSize: '1.1rem', py: 1.5 }}>Tarjeta de Débito / Crédito</MenuItem>
-              <MenuItem value="TRANSFERENCIA" sx={{ fontSize: '1.1rem', py: 1.5 }}>Transferencia</MenuItem>
-              <MenuItem value="DEUDA" sx={{ fontSize: '1.1rem', py: 1.5 }}>Crédito / Fiado (Deuda)</MenuItem>
-            </TextField>
+              <RemoveShoppingCartIcon sx={{ fontSize: 80, color: '#dee2e6', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" align="center" fontWeight="500">
+                El ticket está vacío.
+              </Typography>
+              <Typography variant="body1" color="text.secondary" align="center" mt={1}>
+                Selecciona productos del catálogo para comenzar.
+              </Typography>
+            </Box>
+          ) : (
+            <Box display="flex" flexDirection="column">
+              {/* Lista de productos */}
+              <Stack
+                direction="row"
+                alignItems="center"
+                sx={{ px: 3, py: 1.5, bgcolor: '#f8f9fa', borderTop: '1px solid #e9ecef', borderBottom: '1px solid #e9ecef' }}
+              >
+                <Typography variant="subtitle2" fontWeight="700" color="text.secondary" sx={{ flex: 1 }}>PRODUCTO</Typography>
+                <Typography variant="subtitle2" fontWeight="700" color="text.secondary" sx={{ width: '110px', textAlign: 'center' }}>CANT.</Typography>
+                <Typography variant="subtitle2" fontWeight="700" color="text.secondary" sx={{ width: '80px', textAlign: 'right' }}>SUBT.</Typography>
+                <Box sx={{ width: '36px' }}></Box>
+              </Stack>
 
-            {!hayTurno && (
-              <Alert severity="warning" sx={{ mt: 2 }}>
-                No hay un turno de caja abierto. Abre uno en <b>Caja y Turnos</b> para registrar la venta.
-              </Alert>
-            )}
+              <Box sx={{ maxHeight: { xs: '38vh', md: 'calc(100vh - 560px)' }, minHeight: '110px', overflowY: 'auto', '&::-webkit-scrollbar': { width: '8px' }, '&::-webkit-scrollbar-thumb': { bgcolor: '#ced4da', borderRadius: '4px' } }}>
+                {carrito.map((item) => (
+                  <Stack
+                    key={item.productoId}
+                    direction="row"
+                    alignItems="center"
+                    sx={{
+                      px: 3, py: 2,
+                      borderBottom: '1px solid #f1f3f5',
+                      '&:hover': { bgcolor: '#fdfdfd' }
+                    }}
+                  >
+                    <Box sx={{ flex: 1, minWidth: 0, pr: 1.5 }}>
+                      <Typography
+                        variant="subtitle1"
+                        fontWeight="700"
+                        color="text.primary"
+                        sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
+                        {item.nombre}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" fontWeight="500">
+                        ${item.precio.toFixed(2)} c/u
+                      </Typography>
+                    </Box>
 
-            {metodoPago === 'EFECTIVO' && (
-              <Box sx={{ mt: 3 }}>
-                <TextField 
-                  label="Monto Recibido ($)" 
-                  type="number" 
-                  fullWidth 
-                  value={montoRecibido} 
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === '' || parseFloat(val) >= 0) {
-                      setMontoRecibido(val);
-                    }
-                  }} 
-                  autoFocus 
-                  inputProps={{ min: 0, step: 'any' }}
-                  InputProps={{ sx: { fontSize: '1.3rem', fontWeight: 'bold', borderRadius: 2, height: '60px' } }}
-                />
-                {parseFloat(montoRecibido) >= totalVenta && (
-                  <Alert severity="success" sx={{ mt: 3, fontWeight: 'bold', fontSize: '1.1rem', borderRadius: 2, alignItems: 'center' }}>
-                    Cambio a entregar: ${cambio.toFixed(2)}
-                  </Alert>
-                )}
+                    <Box sx={{ width: '110px', display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        sx={{ border: '1px solid #dee2e6', borderRadius: 2, overflow: 'hidden', bgcolor: '#ffffff' }}
+                      >
+                        <IconButton
+                          onClick={() => cambiarCantidad(item.productoId, -1)}
+                          sx={{ color: 'text.secondary', p: 0.75, borderRadius: 0, bgcolor: '#f8f9fa', '&:hover': { bgcolor: '#e9ecef' } }}
+                        >
+                          <RemoveIcon fontSize="small" />
+                        </IconButton>
+                        <Typography variant="subtitle1" fontWeight="bold" sx={{ width: '32px', textAlign: 'center' }}>
+                          {item.cantidad}
+                        </Typography>
+                        <IconButton
+                          onClick={() => cambiarCantidad(item.productoId, 1)}
+                          sx={{ color: 'text.primary', p: 0.75, borderRadius: 0, bgcolor: '#f8f9fa', '&:hover': { bgcolor: '#e9ecef' } }}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </Box>
+
+                    <Box sx={{ width: '80px', textAlign: 'right', flexShrink: 0 }}>
+                      <Typography variant="subtitle1" fontWeight="900" color="text.primary">
+                        ${(item.precio * item.cantidad).toFixed(2)}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ width: '36px', textAlign: 'right', flexShrink: 0 }}>
+                      <IconButton color="error" onClick={() => eliminarDelCarrito(item.productoId)} sx={{ p: 0.75 }}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </Stack>
+                ))}
               </Box>
-            )}
 
-            <Divider sx={{ my: 3 }} />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={llevaCubiertos}
-                  onChange={(e) => {
-                    const activo = e.target.checked;
-                    setLlevaCubiertos(activo);
-                    if (activo && clienteSeleccionado) {
-                      setCodigoEmpleado(clienteSeleccionado.numeroControl || codigoEmpleado);
-                      setAreaDestino(clienteSeleccionado.area || areaDestino);
-                    }
-                  }}
-                  color="warning"
-                />
-              }
-              label={<Typography fontWeight="bold">¿Se lleva cubiertos fuera de la cafetería?</Typography>}
-            />
+              {/* ===== Zona de cobro, dentro del mismo panel ===== */}
+              <Box sx={{ p: 3, bgcolor: '#ffffff', borderTop: '1px solid #e9ecef' }}>
+                <TextField
+                  select
+                  label="Método de Pago"
+                  fullWidth
+                  size="small"
+                  value={metodoPago}
+                  onChange={(e) => setMetodoPago(e.target.value)}
+                  sx={{ mb: 2 }}
+                  InputProps={{ sx: { borderRadius: 2 } }}
+                >
+                  <MenuItem value="EFECTIVO">Efectivo</MenuItem>
+                  <MenuItem value="TARJETA">Tarjeta de Débito / Crédito</MenuItem>
+                  <MenuItem value="TRANSFERENCIA">Transferencia</MenuItem>
+                  <MenuItem value="DEUDA">Crédito / Fiado (Deuda)</MenuItem>
+                </TextField>
 
-            {llevaCubiertos && (
-              <Stack spacing={2} sx={{ mt: 2 }}>
-                <TextField
-                  label="Código de empleado"
-                  value={codigoEmpleado}
-                  onChange={(e) => setCodigoEmpleado(e.target.value)}
-                  fullWidth
-                  required
-                />
-                <TextField
-                  label="Área / ubicación destino (ej. Piso 2 - Jurídico)"
-                  value={areaDestino}
-                  onChange={(e) => setAreaDestino(e.target.value)}
-                  fullWidth
-                  required
-                />
-                {utensilios.length === 0 ? (
-                  <Alert severity="warning">No hay utensilios registrados. Dalos de alta en el módulo Utensilios.</Alert>
-                ) : (
-                  utensilios.map((u) => (
+                {metodoPago === 'EFECTIVO' && (
+                  <Box sx={{ mb: 2 }}>
                     <TextField
-                      key={u.id}
-                      label={`${u.nombre} (disponibles: ${u.stockDisponible})`}
+                      label="Monto Recibido ($)"
                       type="number"
-                      size="small"
-                      value={cantidadesCubiertos[u.id] ?? ''}
+                      fullWidth
+                      value={montoRecibido}
                       onChange={(e) => {
                         const val = e.target.value;
-                        if (val === '' || (Number(val) >= 0 && Number(val) <= u.stockDisponible)) {
-                          setCantidadesCubiertos((prev) => ({ ...prev, [u.id]: val }));
+                        if (val === '' || parseFloat(val) >= 0) {
+                          setMontoRecibido(val);
                         }
                       }}
-                      inputProps={{ min: 0, max: u.stockDisponible }}
+                      inputProps={{ min: 0, step: 'any' }}
+                      InputProps={{ sx: { fontSize: '1.15rem', fontWeight: 'bold', borderRadius: 2 } }}
                     />
-                  ))
+                    {parseFloat(montoRecibido) >= totalVenta && totalVenta > 0 && (
+                      <Alert severity="success" sx={{ mt: 1.5, fontWeight: 'bold', borderRadius: 2, py: 0.5 }}>
+                        Cambio a entregar: ${cambio.toFixed(2)}
+                      </Alert>
+                    )}
+                  </Box>
                 )}
-              </Stack>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 1, justifyContent: 'space-between' }}>
-          <Button onClick={() => setOpenCobroDialog(false)} disabled={loading} size="large" sx={{ fontSize: '1.1rem', color: 'text.secondary', fontWeight: 'bold' }}>
-            Cancelar
-          </Button>
-          <Button variant="contained" onClick={handleProcesarVenta} disabled={loading} size="large" sx={{ backgroundColor: '#2e7d32', px: 4, py: 1.5, fontSize: '1.1rem', fontWeight: 'bold', borderRadius: 2 }}>
-            {loading ? 'Procesando...' : 'Finalizar Venta'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+
+                {faltaClienteDeuda && (
+                  <Alert severity="info" sx={{ mb: 2, borderRadius: 2, py: 0.5 }}>
+                    Selecciona un cliente arriba para registrar la deuda.
+                  </Alert>
+                )}
+
+                {/* Cubiertos */}
+                <FormControlLabel
+                  sx={{ mb: llevaCubiertos ? 1 : 0 }}
+                  control={
+                    <Switch
+                      checked={llevaCubiertos}
+                      onChange={(e) => {
+                        const activo = e.target.checked;
+                        setLlevaCubiertos(activo);
+                        if (activo && clienteSeleccionado) {
+                          setCodigoEmpleado(clienteSeleccionado.numeroControl || codigoEmpleado);
+                          setAreaDestino(clienteSeleccionado.area || areaDestino);
+                        }
+                      }}
+                      color="warning"
+                    />
+                  }
+                  label={<Typography fontWeight="bold" variant="body2">¿Se lleva cubiertos fuera de la cafetería?</Typography>}
+                />
+
+                <Collapse in={llevaCubiertos} timeout="auto" unmountOnExit>
+                  <Stack spacing={1.5} sx={{ mb: 2 }}>
+                    <TextField
+                      label="Código de empleado"
+                      value={codigoEmpleado}
+                      onChange={(e) => setCodigoEmpleado(e.target.value)}
+                      fullWidth
+                      size="small"
+                      required
+                    />
+                    <TextField
+                      label="Área / ubicación destino (ej. Piso 2 - Jurídico)"
+                      value={areaDestino}
+                      onChange={(e) => setAreaDestino(e.target.value)}
+                      fullWidth
+                      size="small"
+                      required
+                    />
+                    {utensilios.length === 0 ? (
+                      <Alert severity="warning" sx={{ py: 0.5 }}>No hay utensilios registrados. Dalos de alta en el módulo Utensilios.</Alert>
+                    ) : (
+                      utensilios.map((u) => (
+                        <TextField
+                          key={u.id}
+                          label={`${u.nombre} (disp.: ${u.stockDisponible})`}
+                          type="number"
+                          size="small"
+                          value={cantidadesCubiertos[u.id] ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || (Number(val) >= 0 && Number(val) <= u.stockDisponible)) {
+                              setCantidadesCubiertos((prev) => ({ ...prev, [u.id]: val }));
+                            }
+                          }}
+                          inputProps={{ min: 0, max: u.stockDisponible }}
+                        />
+                      ))
+                    )}
+                  </Stack>
+                </Collapse>
+
+                {!hayTurno && (
+                  <Alert severity="warning" sx={{ mb: 2, borderRadius: 2, py: 0.5 }}>
+                    No hay un turno de caja abierto. Abre uno en <b>Caja y Turnos</b> para registrar la venta.
+                  </Alert>
+                )}
+
+                <Divider sx={{ my: 2 }} />
+
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2, p: 2, bgcolor: '#f8f9fa', borderRadius: 3 }}>
+                  <Typography variant="h6" fontWeight="700" color="text.secondary">
+                    TOTAL A PAGAR
+                  </Typography>
+                  <Typography variant="h4" fontWeight="900" color="#691c32">
+                    ${totalVenta.toFixed(2)}
+                  </Typography>
+                </Stack>
+
+                <Button
+                  variant="contained"
+                  fullWidth
+                  size="large"
+                  disabled={!puedeCobrar}
+                  startIcon={<PointOfSaleIcon sx={{ fontSize: '1.8rem !important' }} />}
+                  onClick={handleProcesarVenta}
+                  sx={{
+                    backgroundColor: 'primary.main',
+                    py: 1.8,
+                    borderRadius: 3,
+                    fontWeight: '800',
+                    fontSize: '1.15rem',
+                    textTransform: 'none',
+                    boxShadow: '0 6px 16px rgba(105, 28, 50, 0.25)',
+                    '&:hover': { backgroundColor: 'primary.dark' }
+                  }}
+                >
+                  {loading ? 'Procesando...' : 'Cobrar Venta'}
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </Paper>
+      </Box>
 
       {/* ================= MODAL CÓDIGO QR PARA REGISTRO DE CLIENTE ================= */}
-      <ModalQRCliente 
-        open={openQRModal} 
-        onClose={() => setOpenQRModal(false)} 
+      <ModalQRCliente
+        open={openQRModal}
+        onClose={() => setOpenQRModal(false)}
       />
     </Box>
   );
