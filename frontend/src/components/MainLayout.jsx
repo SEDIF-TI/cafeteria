@@ -77,7 +77,7 @@ export default function MainLayout() {
     { text: 'Utensilios (Cubiertos)', icon: <RestaurantIcon />, path: '/dashboard/utensilios' },
     { text: 'Recetas', icon: <RestaurantMenuIcon />, path: '/dashboard/recetas', soloAdmin: true },
     { text: 'Personal', icon: <GroupIcon />, path: '/dashboard/usuarios', soloAdmin: true },
-    { text: 'Deudores', icon: <MoneyOffIcon />, path: '/dashboard/deudores' },
+    { text: 'Créditos y abonos', icon: <MoneyOffIcon />, path: '/dashboard/deudores' },
     { text: 'Clientes', icon: <PeopleIcon />, path: '/dashboard/clientes' },
   ].filter((item) => esAdmin || !item.soloAdmin);
 

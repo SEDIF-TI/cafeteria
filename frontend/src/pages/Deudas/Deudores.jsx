@@ -127,7 +127,7 @@ export default function Deudores() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <PaymentIcon color="primary" fontSize="large" />
           <Typography variant="h4" component="h1" fontWeight="bold" color="text.primary">
-            Control de Deudores / Adeudos
+            Créditos y abonos
           </Typography>
         </Box>
         <TextField
@@ -191,7 +191,7 @@ export default function Deudores() {
             {deudoresFiltrados.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                  <Typography color="text.secondary">No hay adeudos registrados.</Typography>
+                  <Typography color="text.secondary">No hay créditos pendientes por cobrar.</Typography>
                 </TableCell>
               </TableRow>
             )}
