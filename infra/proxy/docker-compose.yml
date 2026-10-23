@@ -21,16 +21,16 @@ services:
       # - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data       # certificados y estado ACME (persistente)
-      - caddy_config:/config
+      - edge_caddy_data:/data       # certificados y estado ACME (persistente)
+      - edge_caddy_config:/config
     networks:
       - proxy-net
 
 volumes:
-  caddy_data:
-    name: caddy_data
-  caddy_config:
-    name: caddy_config
+  edge_caddy_data:
+    name: edge_caddy_data
+  edge_caddy_config:
+    name: edge_caddy_config
 
 networks:
   # Red compartida con todos los proyectos. La crea el comando de preparacion
