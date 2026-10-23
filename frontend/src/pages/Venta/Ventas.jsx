@@ -223,10 +223,8 @@ export default function Ventas() {
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
         width: '100%',
-        minHeight: '100vh',
-        bgcolor: '#f4f6f8',
+        bgcolor: '#f8fafc',
         gap: { xs: 3, lg: 4 },
-        p: { xs: 2, md: 4 },
         boxSizing: 'border-box',
         alignItems: 'flex-start'
       }}
