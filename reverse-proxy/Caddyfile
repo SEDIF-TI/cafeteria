@@ -22,16 +22,19 @@
 #  comprobar que el flujo HTTPS -> contenedor funciona. En producción se
 #  reemplaza por el certificado real (Bloque 2) y el aviso desaparece.
 
-http://localhost:8080 {
+# Acceso por HTTP en el puerto 80. Bloque "catch-all": responde a cualquier
+# host (la IP de la VM en intranet, o la IP publica via el NAT de redes).
+# Cuando llegue el dominio, se cambia por los bloques de produccion de abajo
+# (con HTTPS/SSL automatico) y este se puede quitar.
+:80 {
 	encode gzip
 	reverse_proxy frontend:80
 }
 
-https://localhost:8443 {
-	tls internal
-	encode gzip
-	reverse_proxy frontend:80
-}
+# --- Pruebas locales en tu maquina (descomentar si lo corres en tu PC) ---
+# http://localhost:8080 {
+# 	reverse_proxy frontend:80
+# }
 
 # ---------------------------------------------------------------------------
 #  BLOQUE 2: PRODUCCIÓN  (descomentar cuando redes entregue dominio + DNS)

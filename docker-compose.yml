@@ -18,8 +18,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: America/Mexico_City
     ports:
-      # Expuesto en 5437 para herramientas locales. En el servidor conviene
-      # quitar esta linea para que la base NO sea accesible desde la red.
+      # Expuesto en 5437 para herramientas (DBeaver, respaldos) desde la INTRANET.
+      # NO es accesible desde internet porque redes solo hace NAT del tcp 80,
+      # no de este puerto. Para restringirlo aun mas por IP de origen, ver la
+      # regla DOCKER-USER documentada en el README/despliegue.
       - "5437:5432"
     volumes:
       - pgdata_cafeteria:/var/lib/postgresql/data
@@ -69,12 +71,10 @@ services:
     depends_on:
       - frontend
     ports:
-      # Puertos de PRUEBA local (no chocan con el 8090 del frontend).
-      - "${PROXY_HTTP_PORT:-8080}:8080"
-      - "${PROXY_HTTPS_PORT:-8443}:8443"
-      # En PRODUCCION se usan 80 y 443 (descomentar y, de preferencia, quitar
-      # los de prueba de arriba):
-      # - "80:80"
+      # Puerto 80 publico: redes hace NAT de tcp 80 -> esta VM, y Caddy sirve
+      # la app por HTTP. En intranet tambien se alcanza por la IP de la VM.
+      - "${PROXY_HTTP_PORT:-80}:80"
+      # 443 se activa cuando redes entregue el dominio (SSL automatico con Caddy):
       # - "443:443"
     volumes:
       - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
