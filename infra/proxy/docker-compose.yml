@@ -1,0 +1,40 @@
+# ===========================================================================
+#  Reverse proxy CENTRAL - una sola puerta de entrada para TODOS los proyectos
+#  del servidor. Es dueno de los puertos 80 (y 443 cuando haya SSL) y enruta
+#  por subdominio a cada proyecto a traves de la red compartida "proxy-net".
+#
+#  Preparacion (UNA sola vez en el servidor):
+#     docker network create proxy-net
+#
+#  Levantar / actualizar:
+#     docker compose up -d
+# ===========================================================================
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: edge_caddy
+    restart: always
+    ports:
+      - "80:80"
+      # 443 se activa cuando haya dominio (SSL automatico con Caddy):
+      # - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # certificados y estado ACME (persistente)
+      - caddy_config:/config
+    networks:
+      - proxy-net
+
+volumes:
+  caddy_data:
+    name: caddy_data
+  caddy_config:
+    name: caddy_config
+
+networks:
+  # Red compartida con todos los proyectos. La crea el comando de preparacion
+  # (docker network create proxy-net), por eso va como "external".
+  proxy-net:
+    name: proxy-net
+    external: true

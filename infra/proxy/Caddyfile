@@ -1,0 +1,51 @@
+# ===========================================================================
+#  Caddy CENTRAL - enruta a cada proyecto del servidor.
+#
+#  Cada proyecto corre en su propio stack (su front/back/base) SIN su propio
+#  Caddy, y se conecta a la red "proxy-net". Aqui se agrega una entrada que
+#  diga: "para tal nombre/subdominio, manda al contenedor tal".
+#
+#  IMPORTANTE: enrutar VARIOS proyectos requiere SUBDOMINIOS (un nombre por
+#  proyecto). Sin dominio, solo se puede exponer UN proyecto por IP (el bloque
+#  catch-all ":80" de abajo). Al llegar el dominio, se usa un bloque por
+#  subdominio (o un wildcard) y se puede publicar cuantos proyectos se quiera.
+# ===========================================================================
+
+# --- HOY (sin dominio): un solo proyecto, servido por IP en HTTP ---
+:80 {
+	encode gzip
+	reverse_proxy cafeteria_frontend:80
+}
+
+# ---------------------------------------------------------------------------
+#  CON DOMINIO (descomentar; un bloque por proyecto). Caddy saca y renueva
+#  el certificado SSL automaticamente para cada subdominio.
+# ---------------------------------------------------------------------------
+# cafeteria.suzona.gob.mx {
+# 	encode gzip
+# 	reverse_proxy cafeteria_frontend:80
+# }
+#
+# rrhh.suzona.gob.mx {
+# 	encode gzip
+# 	reverse_proxy rrhh_frontend:80
+# }
+
+# ---------------------------------------------------------------------------
+#  O un WILDCARD para TODOS los subdominios de golpe (requiere imagen de Caddy
+#  con el plugin del proveedor DNS + un token en DNS_API_TOKEN):
+# ---------------------------------------------------------------------------
+# *.suzona.gob.mx {
+# 	tls {
+# 		dns PROVEEDOR {env.DNS_API_TOKEN}
+# 	}
+# 	encode gzip
+#
+# 	@cafeteria host cafeteria.suzona.gob.mx
+# 	handle @cafeteria { reverse_proxy cafeteria_frontend:80 }
+#
+# 	@rrhh host rrhh.suzona.gob.mx
+# 	handle @rrhh { reverse_proxy rrhh_frontend:80 }
+#
+# 	handle { respond "Subdominio no configurado" 404 }
+# }

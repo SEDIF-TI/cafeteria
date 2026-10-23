@@ -1,8 +1,16 @@
 # ===========================================================================
-# Orquestacion completa: base de datos + backend (Spring Boot) + frontend (nginx)
+# Orquestacion del proyecto CAFETERIA: base de datos + backend + frontend.
 #
-#   Levantar todo:        docker compose up -d --build
-#   Solo la base (dev):   docker compose up -d db-cafeteria
+# El reverse proxy (Caddy) YA NO vive aqui: es un stack central e independiente
+# (ver infra/proxy/) que atiende a TODOS los proyectos del servidor y enruta por
+# subdominio. El frontend se conecta a la red compartida "proxy-net" para que
+# ese Caddy central pueda alcanzarlo.
+#
+#   Levantar:        docker compose up -d --build
+#   Solo la base:    docker compose up -d db-cafeteria
+#
+# Requiere que exista la red compartida (una sola vez en el servidor):
+#   docker network create proxy-net
 #
 # Las variables sensibles se leen de .env (no versionado).
 # ===========================================================================
@@ -20,8 +28,7 @@ services:
     ports:
       # Expuesto en 5437 para herramientas (DBeaver, respaldos) desde la INTRANET.
       # NO es accesible desde internet porque redes solo hace NAT del tcp 80,
-      # no de este puerto. Para restringirlo aun mas por IP de origen, ver la
-      # regla DOCKER-USER documentada en el README/despliegue.
+      # no de este puerto.
       - "5437:5432"
     volumes:
       - pgdata_cafeteria:/var/lib/postgresql/data
@@ -37,8 +44,8 @@ services:
       - db-cafeteria
     # Carga POSTGRES_*, APP_JWT_SECRET y MAIL_* desde .env...
     env_file: .env
-    # ...pero dentro de Docker la base se alcanza por el nombre del servicio,
-    # no por localhost. Estas variables tienen prioridad sobre el .env.
+    # ...pero dentro de Docker la base se alcanza por el nombre del servicio.
+    # Estas variables tienen prioridad sobre el .env.
     environment:
       DB_HOST: db-cafeteria
       DB_PORT: 5432
@@ -55,42 +62,22 @@ services:
     depends_on:
       - backend
     ports:
-      # Puerto web en el host. Por defecto 8090 (para no ocupar el 80).
-      # En el servidor se puede fijar WEB_PORT=80 o poner un proxy delante.
+      # Acceso directo opcional por IP en intranet (ej. http://IP:8090).
+      # El acceso principal entra por el Caddy CENTRAL (puerto 80) via proxy-net.
       - "${WEB_PORT:-8090}:80"
     networks:
-      - cafeteria-net
-
-  # Reverse proxy / terminacion HTTPS. Pone una sola puerta de entrada delante
-  # de las apps y enruta por subdominio. En produccion saca y renueva el
-  # certificado solo (ver reverse-proxy/Caddyfile).
-  caddy:
-    image: caddy:2-alpine
-    container_name: cafeteria_caddy
-    restart: always
-    depends_on:
-      - frontend
-    ports:
-      # Puerto 80 publico: redes hace NAT de tcp 80 -> esta VM, y Caddy sirve
-      # la app por HTTP. En intranet tambien se alcanza por la IP de la VM.
-      - "${PROXY_HTTP_PORT:-80}:80"
-      # 443 se activa cuando redes entregue el dominio (SSL automatico con Caddy):
-      # - "443:443"
-    volumes:
-      - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data      # certificados y estado de ACME (persistente)
-      - caddy_config:/config
-    networks:
-      - cafeteria-net
+      - cafeteria-net   # para hablar con el backend
+      - proxy-net       # para que el Caddy central (otro stack) lo alcance
 
 volumes:
   pgdata_cafeteria:
     name: pgdata_cafeteria
-  caddy_data:
-    name: caddy_data
-  caddy_config:
-    name: caddy_config
 
 networks:
   cafeteria-net:
     name: cafeteria-net
+  # Red compartida con el proxy central. La crea el stack del proxy
+  # (docker network create proxy-net), por eso va como "external".
+  proxy-net:
+    name: proxy-net
+    external: true
