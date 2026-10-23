@@ -282,6 +282,34 @@ e inicia sesión. ✅
 
 ---
 
+## 8.1 Firewall (ufw) y puertos — importante para proyectos nuevos
+
+El servidor tiene un **firewall (ufw)** activo. Permite solo:
+- **22** (SSH), **80** (web), **443** (web con SSL). Todo lo demás a nivel del host está cerrado.
+
+### ¿Un proyecto NUEVO necesita abrir un puerto en el firewall?
+**Normalmente NO.** Gracias al **proxy central (Caddy)**, los proyectos web se publican por
+**subdominio sobre el mismo 80/443** (que ya están permitidos). Para publicar un proyecto
+nuevo **no se abre un puerto nuevo**: solo se agrega su bloque en `infra/proxy/Caddyfile` y se
+recarga el proxy (`cd ~/cafeteria/infra/proxy && docker compose up -d`).
+
+Solo abrirías un puerto si un proyecto expone un **servicio especial directo** (no a través del
+proxy). En ese caso:
+```bash
+sudo ufw allow <puerto>/tcp
+sudo ufw status verbose
+```
+
+### ⚠️ Detalle clave: Docker se salta el firewall
+Los puertos que publica **Docker** (ej. `5437` de la base, `8090` del frontend) **NO** los
+controla ufw — Docker pone sus propias reglas. Es decir:
+- Siguen accesibles en la **intranet** aunque ufw los "niegue".
+- **No llegan de internet** porque Redes solo hace NAT del puerto web.
+- Para **restringir** un puerto de Docker a ciertas IP, se usa una regla en la cadena
+  `DOCKER-USER` (no ufw). Consultar con el administrador.
+
+---
+
 ## 9. Actualizar un proyecto ya desplegado
 
 Cuando haya cambios nuevos en el repositorio:
@@ -332,6 +360,7 @@ Y usa su función de exportar/respaldar.
 
 ## 12. Pendientes de seguridad antes de producción
 
+- [x] **Firewall (ufw)** activo, permitiendo solo 22/80/443 — HECHO. *(Ojo: Docker se salta ufw; ver 8.1.)*
 - [ ] Poner `app.errores.detallados=false` (para no exponer detalles de errores internos).
 - [ ] Revisar si conviene **restringir el puerto de la base** (5437) a solo ciertas IP de la intranet.
 - [ ] Cambiar las **contraseñas de prueba** de los usuarios.
