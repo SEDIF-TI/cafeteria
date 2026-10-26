@@ -35,8 +35,14 @@ public class Producto {
     @Column(precision = 10, scale = 2)
     private BigDecimal costo;
 
+    // Se conserva por compatibilidad; la fuente de verdad ahora es tipoProducto
+    // (esDirecto == (tipoProducto == DIRECTO)). Lo mantiene en sync el servicio.
     @Column(nullable = false)
-    private Boolean esDirecto; 
+    private Boolean esDirecto;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_producto", length = 20)
+    private TipoProducto tipoProducto;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "inventario_id", nullable = true)

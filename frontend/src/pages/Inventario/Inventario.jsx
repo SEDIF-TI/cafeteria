@@ -12,13 +12,21 @@ import BuildIcon from '@mui/icons-material/Build';
 import api from '../../api/axiosClient';
 import { useFeedback } from '../../components/FeedbackProvider';
 
+// Devuelve el tipo de un producto ('DIRECTO' | 'PREPARADO' | 'MATERIA_PRIMA').
+// Usa tipoProducto (nuevo); si faltara (dato viejo), lo deduce del esDirecto/inventario.
+const tipoDe = (item) => {
+  if (item?.tipoProducto) return item.tipoProducto;
+  if (item?.esDirecto === false) return item?.inventario ? 'MATERIA_PRIMA' : 'PREPARADO';
+  return 'DIRECTO';
+};
+
 export default function Inventario() {
   const { notificar } = useFeedback();
   const [inventario, setInventario] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [openStockDialog, setOpenStockDialog] = useState(false);
-  
+
   const [openAjusteDialog, setOpenAjusteDialog] = useState(false);
   const [productoAjuste, setProductoAjuste] = useState(null);
   const [nuevoStockAjuste, setNuevoStockAjuste] = useState('');
@@ -27,14 +35,14 @@ export default function Inventario() {
   const [editId, setEditId] = useState(null);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [stockExtra, setStockExtra] = useState('');
-  
+
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
     precio: '',
     costo: '',
     categoriaId: '',
-    esDirecto: true,
+    tipoProducto: 'DIRECTO',
     cantidad: '',
     stockMinimo: '',
     unidadVisual: 'Piezas'
@@ -62,10 +70,9 @@ export default function Inventario() {
     const cantidad = parseFloat(valor) || 0;
     const inv = item?.inventario || item || {};
     let uni = (inv.unidadMedida || inv.unidad_medida || '').toString().toUpperCase();
-    
+
     if (!uni || uni === 'UNDEFINED' || uni === 'NULL') {
-      const esDirecto = item?.esDirecto ?? true;
-      uni = esDirecto ? 'UNIDAD' : 'GRAMOS';
+      uni = tipoDe(item) === 'DIRECTO' ? 'UNIDAD' : 'GRAMOS';
     }
 
     if (uni.includes('MILILITRO') || uni.includes('LITRO')) {
@@ -74,18 +81,17 @@ export default function Inventario() {
     if (uni.includes('GRAMO') || uni.includes('KILO')) {
       return cantidad >= 1000 ? `${Number((cantidad / 1000).toFixed(2))} Kg` : `${cantidad} g`;
     }
-    
+
     return `${Math.floor(cantidad)} unidades`;
   };
 
   const obtenerDetallesUnidad = (item) => {
     if (!item) return { esPieza: true, unidadMedEnum: 'UNIDAD', unidadTexto: 'Piezas', sufijo: 'pza', factor: 1 };
-    
+
     const inv = item.inventario || item;
-    const esDirecto = item.esDirecto ?? true;
     let uniMedStr = (inv.unidadMedida ?? inv.unidad_medida ?? item.unidadMedida ?? '').toString().toUpperCase();
-    
-    if (!uniMedStr) uniMedStr = esDirecto ? 'UNIDAD' : 'GRAMOS';
+
+    if (!uniMedStr) uniMedStr = tipoDe(item) === 'DIRECTO' ? 'UNIDAD' : 'GRAMOS';
 
     if (uniMedStr.includes('GRAMO') || uniMedStr.includes('KILO')) {
       return { esPieza: false, unidadMedEnum: 'GRAMOS', unidadTexto: 'Kilos (Kg)', sufijo: 'Kg', factor: 1000 };
@@ -98,20 +104,21 @@ export default function Inventario() {
 
   const handleOpenCreate = () => {
     setEditId(null);
-    setFormData({ 
-      nombre: '', descripcion: '', precio: '', costo: '', categoriaId: '', 
-      esDirecto: true, cantidad: '', stockMinimo: '', unidadVisual: 'Piezas' 
+    setFormData({
+      nombre: '', descripcion: '', precio: '', costo: '', categoriaId: '',
+      tipoProducto: 'DIRECTO', cantidad: '', stockMinimo: '', unidadVisual: 'Piezas'
     });
     setOpenDialog(true);
   };
 
   const handleTipoRegistroChange = (e) => {
-    const esDirectoVal = e.target.value === 'true' || e.target.value === true;
+    const tipo = e.target.value; // 'DIRECTO' | 'PREPARADO' | 'MATERIA_PRIMA'
     setFormData((prev) => ({
       ...prev,
-      esDirecto: esDirectoVal,
-      unidadVisual: esDirectoVal ? 'Piezas' : (prev.unidadVisual === 'Piezas' ? 'Gramos' : prev.unidadVisual),
-      precio: esDirectoVal ? prev.precio : 0
+      tipoProducto: tipo,
+      unidadVisual: tipo === 'DIRECTO' ? 'Piezas' : (prev.unidadVisual === 'Piezas' ? 'Gramos' : prev.unidadVisual),
+      // La materia prima no se vende -> precio 0. Directo y Preparado conservan precio.
+      precio: tipo === 'MATERIA_PRIMA' ? 0 : prev.precio
     }));
   };
 
@@ -119,33 +126,34 @@ export default function Inventario() {
     const inv = item.inventario || item;
     const stockAct = inv.stockActual ?? item.stockActual ?? 0;
     const stockMin = inv.stockMinimo ?? item.stockMinimo ?? 0;
-    const esDirectoVal = item.esDirecto ?? true;
-    
+    const tipoVal = tipoDe(item);
+    const esDir = tipoVal === 'DIRECTO';
+
     let uniMed = (inv.unidadMedida ?? item.unidadMedida ?? '').toString().toUpperCase();
-    if (!uniMed) uniMed = (!esDirectoVal) ? 'GRAMOS' : 'UNIDAD';
+    if (!uniMed) uniMed = esDir ? 'UNIDAD' : 'GRAMOS';
 
     let cant = parseFloat(stockAct) || 0;
     let min = parseFloat(stockMin) || 0;
     let uniVisual = 'Piezas';
 
-    if (esDirectoVal) {
+    if (esDir || tipoVal === 'PREPARADO') {
       uniVisual = 'Piezas';
     } else {
       if (uniMed.includes('MILILITRO') || uniMed.includes('LITRO')) {
-        if (cant >= 1000 || min >= 1000) { 
-          uniVisual = 'Litros'; 
-          cant /= 1000; 
-          min /= 1000; 
-        } else { 
-          uniVisual = 'Mililitros'; 
+        if (cant >= 1000 || min >= 1000) {
+          uniVisual = 'Litros';
+          cant /= 1000;
+          min /= 1000;
+        } else {
+          uniVisual = 'Mililitros';
         }
       } else if (uniMed.includes('GRAMO') || uniMed.includes('KILO')) {
-        if (cant >= 1000 || min >= 1000) { 
-          uniVisual = 'Kilos'; 
-          cant /= 1000; 
-          min /= 1000; 
-        } else { 
-          uniVisual = 'Gramos'; 
+        if (cant >= 1000 || min >= 1000) {
+          uniVisual = 'Kilos';
+          cant /= 1000;
+          min /= 1000;
+        } else {
+          uniVisual = 'Gramos';
         }
       } else {
         uniVisual = 'Piezas';
@@ -158,12 +166,12 @@ export default function Inventario() {
       precio: item.precio || 0,
       costo: item.costo || 0,
       categoriaId: item.categoria?.id || item.categoriaId || '',
-      esDirecto: esDirectoVal,
+      tipoProducto: tipoVal,
       cantidad: cant,
       stockMinimo: min,
       unidadVisual: uniVisual
     });
-    
+
     setEditId(item.id);
     setOpenDialog(true);
   };
@@ -177,10 +185,10 @@ export default function Inventario() {
   const handleOpenAjuste = (item) => {
     const inv = item.inventario || item;
     setProductoAjuste(item);
-    
+
     const detalles = obtenerDetallesUnidad(item);
     const stockActualBase = parseFloat(inv.stockActual ?? item.stockActual ?? 0) || 0;
-    
+
     const stockVisual = detalles.esPieza ? stockActualBase : (stockActualBase / detalles.factor);
 
     setNuevoStockAjuste(stockVisual);
@@ -209,7 +217,7 @@ export default function Inventario() {
 
     const inv = productoSeleccionado.inventario || productoSeleccionado;
     const stockActualVal = parseFloat(inv.stockActual ?? productoSeleccionado.stockActual ?? 0) || 0;
-    
+
     const detalles = obtenerDetallesUnidad(productoSeleccionado);
 
     if (detalles.esPieza && !Number.isInteger(extraVal)) {
@@ -220,13 +228,14 @@ export default function Inventario() {
     const extraBase = detalles.esPieza ? extraVal : extraVal * detalles.factor;
     const nuevoStockTotal = stockActualVal + extraBase;
     const idCat = productoSeleccionado.categoria?.id || productoSeleccionado.categoriaId;
+    const tipo = tipoDe(productoSeleccionado);
 
     const payload = {
       nombre: productoSeleccionado.nombre,
       descripcion: productoSeleccionado.descripcion || '',
-      precio: productoSeleccionado.esDirecto ? (parseFloat(productoSeleccionado.precio) || 0) : 0,
+      precio: tipo === 'DIRECTO' ? (parseFloat(productoSeleccionado.precio) || 0) : 0,
       costo: parseFloat(productoSeleccionado.costo) || 0,
-      esDirecto: Boolean(productoSeleccionado.esDirecto),
+      tipoProducto: tipo,
       categoriaId: idCat,
       stock: nuevoStockTotal,
       stockMinimo: parseFloat(inv.stockMinimo ?? productoSeleccionado.stockMinimo ?? 0),
@@ -272,7 +281,7 @@ export default function Inventario() {
         nuevaCantidad: cantidadBase,
         motivoAjuste: motivoAjuste
       });
-      
+
       setOpenAjusteDialog(false);
       setProductoAjuste(null);
       setNuevoStockAjuste('');
@@ -292,22 +301,14 @@ export default function Inventario() {
       return;
     }
 
-    let cantidadVal = parseFloat(formData.cantidad);
-    let minimoVal = parseFloat(formData.stockMinimo);
+    const tipo = formData.tipoProducto;
+    const seVende = tipo === 'DIRECTO' || tipo === 'PREPARADO';
+    const tieneStock = tipo === 'DIRECTO' || tipo === 'MATERIA_PRIMA';
+
     let precioVal = parseFloat(formData.precio);
     let costoVal = parseFloat(formData.costo);
 
-    if (isNaN(cantidadVal) || cantidadVal < 0) {
-      notificar("El stock inicial debe ser un número mayor o igual a 0.", 'warning');
-      return;
-    }
-
-    if (isNaN(minimoVal) || minimoVal < 0) {
-      notificar("El stock mínimo debe ser un número mayor o igual a 0.", 'warning');
-      return;
-    }
-
-    if (formData.esDirecto && (isNaN(precioVal) || precioVal < 0)) {
+    if (seVende && (isNaN(precioVal) || precioVal < 0)) {
       notificar("El precio de venta debe ser un valor válido mayor o igual a 0.", 'warning');
       return;
     }
@@ -316,40 +317,57 @@ export default function Inventario() {
       costoVal = 0;
     }
 
-    const esPieza = formData.esDirecto || formData.unidadVisual === 'Piezas';
-
-    if (esPieza && (!Number.isInteger(cantidadVal) || !Number.isInteger(minimoVal))) {
-      notificar("Los productos registrados por Pieza / Venta Directa deben ser números enteros.", 'warning');
-      return;
-    }
-
-    let cantidadFinal = cantidadVal;
-    let minimoFinal = minimoVal;
+    let cantidadFinal = 0;
+    let minimoFinal = 0;
     let unidadBase = 'UNIDAD';
 
-    if (esPieza) {
-      unidadBase = 'UNIDAD';
-    } else {
-      switch (formData.unidadVisual) {
-        case 'Litros': 
-          cantidadFinal *= 1000; 
-          minimoFinal *= 1000; 
-          unidadBase = 'MILILITROS'; 
-          break;
-        case 'Mililitros': 
-          unidadBase = 'MILILITROS'; 
-          break;
-        case 'Kilos': 
-          cantidadFinal *= 1000; 
-          minimoFinal *= 1000; 
-          unidadBase = 'GRAMOS'; 
-          break;
-        case 'Gramos': 
-          unidadBase = 'GRAMOS'; 
-          break;
-        default: 
-          unidadBase = 'UNIDAD';
-          break;
+    if (tieneStock) {
+      const cantidadVal = parseFloat(formData.cantidad);
+      const minimoVal = parseFloat(formData.stockMinimo);
+
+      if (isNaN(cantidadVal) || cantidadVal < 0) {
+        notificar("El stock inicial debe ser un número mayor o igual a 0.", 'warning');
+        return;
+      }
+      if (isNaN(minimoVal) || minimoVal < 0) {
+        notificar("El stock mínimo debe ser un número mayor o igual a 0.", 'warning');
+        return;
+      }
+
+      const esPieza = tipo === 'DIRECTO' || formData.unidadVisual === 'Piezas';
+
+      if (esPieza && (!Number.isInteger(cantidadVal) || !Number.isInteger(minimoVal))) {
+        notificar("Los productos registrados por Pieza / Venta Directa deben ser números enteros.", 'warning');
+        return;
+      }
+
+      cantidadFinal = cantidadVal;
+      minimoFinal = minimoVal;
+
+      if (esPieza) {
+        unidadBase = 'UNIDAD';
+      } else {
+        switch (formData.unidadVisual) {
+          case 'Litros':
+            cantidadFinal *= 1000;
+            minimoFinal *= 1000;
+            unidadBase = 'MILILITROS';
+            break;
+          case 'Mililitros':
+            unidadBase = 'MILILITROS';
+            break;
+          case 'Kilos':
+            cantidadFinal *= 1000;
+            minimoFinal *= 1000;
+            unidadBase = 'GRAMOS';
+            break;
+          case 'Gramos':
+            unidadBase = 'GRAMOS';
+            break;
+          default:
+            unidadBase = 'UNIDAD';
+            break;
+        }
       }
     }
 
@@ -358,9 +376,9 @@ export default function Inventario() {
     const payload = {
       nombre: formData.nombre.trim(),
       descripcion: formData.descripcion || '',
-      precio: formData.esDirecto ? precioVal : 0,
+      precio: seVende ? (precioVal || 0) : 0,
       costo: costoVal,
-      esDirecto: Boolean(formData.esDirecto),
+      tipoProducto: tipo,
       categoriaId: idCat,
       stock: cantidadFinal,
       stockMinimo: minimoFinal,
@@ -389,7 +407,9 @@ export default function Inventario() {
     setEditId(null);
   };
 
-  const permiteDecimales = !formData.esDirecto && formData.unidadVisual !== 'Piezas';
+  const esPreparadoForm = formData.tipoProducto === 'PREPARADO';
+  const esMateriaPrimaForm = formData.tipoProducto === 'MATERIA_PRIMA';
+  const permiteDecimales = esMateriaPrimaForm && formData.unidadVisual !== 'Piezas';
   const detallesStockDialog = obtenerDetallesUnidad(productoSeleccionado);
   const detallesAjusteDialog = obtenerDetallesUnidad(productoAjuste);
 
@@ -397,9 +417,9 @@ export default function Inventario() {
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h5" fontWeight="bold">Control de Inventario y Productos</Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />} 
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
           onClick={handleOpenCreate}
           sx={{ backgroundColor: 'primary.main' }}
         >
@@ -427,9 +447,14 @@ export default function Inventario() {
               const inv = item.inventario || item;
               const stockActualVal = inv.stockActual ?? item.stockActual ?? 0;
               const stockMinimoVal = inv.stockMinimo ?? item.stockMinimo ?? 0;
-              const esDirectoVal = item.esDirecto ?? true;
-              // Compuesto: producto no directo preparado al momento (sin inventario físico propio, se arma por receta)
-              const esCompuesto = !esDirectoVal && !item.inventario;
+              const tipoVal = tipoDe(item);
+              // Preparado: se arma por receta (sin inventario físico propio).
+              const esPreparado = tipoVal === 'PREPARADO';
+
+              const tipoLabel = tipoVal === 'DIRECTO' ? 'Venta Directa'
+                : tipoVal === 'PREPARADO' ? 'Preparado' : 'Materia Prima';
+              const tipoColor = tipoVal === 'DIRECTO' ? 'info'
+                : tipoVal === 'PREPARADO' ? 'success' : 'secondary';
 
               return (
                 <TableRow key={item.id}>
@@ -443,15 +468,11 @@ export default function Inventario() {
                     ${Number(item.precio || 0).toFixed(2)}
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={esDirectoVal ? 'Venta Directa' : esCompuesto ? 'Preparado al momento' : 'Materia Prima'}
-                      color={esDirectoVal ? 'info' : esCompuesto ? 'success' : 'secondary'}
-                      size="small"
-                    />
+                    <Chip label={tipoLabel} color={tipoColor} size="small" />
                   </TableCell>
                   <TableCell align="center">
                     <Chip
-                      label={esCompuesto
+                      label={esPreparado
                         ? `${Number(item.stockDisponible || 0)} porciones`
                         : formatearUnidad(stockActualVal, item)}
                       size="small"
@@ -459,11 +480,11 @@ export default function Inventario() {
                     />
                   </TableCell>
                   <TableCell align="center" sx={{ color: 'text.secondary' }}>
-                    {esCompuesto ? '— (según receta)' : formatearUnidad(stockMinimoVal, item)}
+                    {esPreparado ? '— (según receta)' : formatearUnidad(stockMinimoVal, item)}
                   </TableCell>
 
                   <TableCell align="center">
-                    {!esCompuesto && (
+                    {!esPreparado && (
                       <>
                         <Tooltip title="Reabastecer / Sumar Stock">
                           <IconButton onClick={() => handleOpenSumarStock(item)} sx={{ color: '#2e7d32' }}>
@@ -517,11 +538,12 @@ export default function Inventario() {
                 select
                 label="Tipo de Registro"
                 fullWidth
-                value={formData.esDirecto}
+                value={formData.tipoProducto}
                 onChange={handleTipoRegistroChange}
               >
-                <MenuItem value={true}>Venta Directa (Ej. Papas, Agua)</MenuItem>
-                <MenuItem value={false}>Materia Prima (Ej. Leche, Café)</MenuItem>
+                <MenuItem value="DIRECTO">Venta Directa (Ej. Papas, Agua)</MenuItem>
+                <MenuItem value="PREPARADO">Producto Preparado (Ej. Sándwich — usa receta)</MenuItem>
+                <MenuItem value="MATERIA_PRIMA">Materia Prima / Insumo (Ej. Leche, Café)</MenuItem>
               </TextField>
             </Grid>
             <Grid item xs={12}>
@@ -553,7 +575,7 @@ export default function Inventario() {
                 fullWidth
                 onKeyDown={(e) => handleKeyDownNumerico(e, true)}
                 inputProps={{ min: 0, step: "0.01" }}
-                helperText={!formData.esDirecto ? "Costo por Kilo / Litro / Pieza de insumo" : "Costo de compra unitario"}
+                helperText={esMateriaPrimaForm ? "Costo por Kilo / Litro / Pieza de insumo" : "Costo de compra / preparación"}
                 value={formData.costo}
                 onChange={(e) => setFormData({ ...formData, costo: e.target.value })}
               />
@@ -565,21 +587,24 @@ export default function Inventario() {
                 fullWidth
                 onKeyDown={(e) => handleKeyDownNumerico(e, true)}
                 inputProps={{ min: 0, step: "0.01" }}
-                disabled={!formData.esDirecto}
-                helperText={!formData.esDirecto ? "La materia prima no se vende directamente" : ""}
+                disabled={esMateriaPrimaForm}
+                helperText={esMateriaPrimaForm ? "La materia prima no se vende directamente" : ""}
                 value={formData.precio}
                 onChange={(e) => setFormData({ ...formData, precio: e.target.value })}
               />
             </Grid>
+
+            {/* Stock: solo para Directo y Materia Prima (el Preparado se calcula de la receta) */}
             <Grid item xs={12} sm={4}>
               <TextField
                 label="Stock Inicial"
                 type="number"
                 fullWidth
+                disabled={esPreparadoForm}
                 onKeyDown={(e) => handleKeyDownNumerico(e, permiteDecimales)}
                 inputProps={{ min: 0, step: permiteDecimales ? "any" : "1" }}
-                helperText={!permiteDecimales ? "Solo números enteros" : "Soporta decimales"}
-                value={formData.cantidad}
+                helperText={esPreparadoForm ? "El stock se calcula de la receta" : (!permiteDecimales ? "Solo números enteros" : "Soporta decimales")}
+                value={esPreparadoForm ? '' : formData.cantidad}
                 onChange={(e) => setFormData({ ...formData, cantidad: e.target.value })}
               />
             </Grid>
@@ -588,10 +613,11 @@ export default function Inventario() {
                 label="Stock Mínimo"
                 type="number"
                 fullWidth
+                disabled={esPreparadoForm}
                 onKeyDown={(e) => handleKeyDownNumerico(e, permiteDecimales)}
                 inputProps={{ min: 0, step: permiteDecimales ? "any" : "1" }}
-                helperText={!permiteDecimales ? "Solo números enteros" : "Soporta decimales"}
-                value={formData.stockMinimo}
+                helperText={esPreparadoForm ? "No aplica" : (!permiteDecimales ? "Solo números enteros" : "Soporta decimales")}
+                value={esPreparadoForm ? '' : formData.stockMinimo}
                 onChange={(e) => setFormData({ ...formData, stockMinimo: e.target.value })}
               />
             </Grid>
@@ -600,9 +626,9 @@ export default function Inventario() {
                 select
                 label="Unidad de Medida"
                 fullWidth
-                disabled={formData.esDirecto}
-                helperText={formData.esDirecto ? "Venta directa solo permite Piezas" : ""}
-                value={formData.esDirecto ? 'Piezas' : formData.unidadVisual}
+                disabled={formData.tipoProducto === 'DIRECTO' || esPreparadoForm}
+                helperText={formData.tipoProducto === 'DIRECTO' ? "Venta directa solo permite Piezas" : (esPreparadoForm ? "No aplica" : "")}
+                value={formData.tipoProducto === 'DIRECTO' ? 'Piezas' : formData.unidadVisual}
                 onChange={(e) => setFormData({ ...formData, unidadVisual: e.target.value })}
               >
                 {unidadesVisuales.map((uni) => (
@@ -649,7 +675,7 @@ export default function Inventario() {
               onChange={(e) => setStockExtra(e.target.value)}
               helperText={
                 detallesStockDialog.esPieza
-                  ? "Ingresa números enteros únicamente." 
+                  ? "Ingresa números enteros únicamente."
                   : `Ingresa la cantidad en ${detallesStockDialog.unidadTexto}.`
               }
             />
@@ -674,7 +700,7 @@ export default function Inventario() {
             <Typography variant="caption" display="block" color="error" gutterBottom>
               Atención: Esta acción sobreescribirá la cantidad actual en el sistema.
             </Typography>
-            
+
             <TextField
               label={`Nueva Cantidad Exacta (${detallesAjusteDialog.sufijo})`}
               type="number"
@@ -696,7 +722,7 @@ export default function Inventario() {
               onChange={(e) => setNuevoStockAjuste(e.target.value)}
               helperText="Indica la cantidad real que hay actualmente en almacén."
             />
-            
+
             <TextField
               label="Motivo del Ajuste (Opcional)"
               fullWidth

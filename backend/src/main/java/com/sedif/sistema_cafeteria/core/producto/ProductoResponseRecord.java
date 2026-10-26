@@ -7,7 +7,8 @@ public record ProductoResponseRecord(
     String nombre,
     String descripcion,
     BigDecimal precio,
-    Boolean esDirecto,
+    TipoProducto tipoProducto,
+    Boolean esDirecto, // derivado (== tipoProducto DIRECTO); se conserva por compatibilidad
     Boolean activo,
     BigDecimal stockDisponible, // Stock calculado dinámicamente (directo o por receta)
     CategoriaDTO categoria,
@@ -19,6 +20,7 @@ public record ProductoResponseRecord(
             producto.getNombre(),
             producto.getDescripcion(),
             producto.getPrecio(),
+            producto.getTipoProducto(),
             producto.getEsDirecto(),
             producto.getActivo(),
             stockDisponible,

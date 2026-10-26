@@ -71,11 +71,13 @@ export default function Recetas() {
       const resProd = await api.get("/productos");
       const todosProductos = extraerArray(resProd.data);
 
-      // FILTRADO SEGÚN Producto.java:
-      // esDirecto === true  => Productos finales (ej. café late, papas)
-      // esDirecto === false => Materia Prima / Insumos requeridos (ej. Harina, Leche)
-      const preparados = todosProductos.filter((p) => p.esDirecto === true);
-      const insumos = todosProductos.filter((p) => p.esDirecto === false);
+      // FILTRADO por tipoProducto:
+      //   PREPARADO     => productos finales que se arman con receta (sándwich, café)
+      //   MATERIA_PRIMA => insumos/ingredientes que entran en la receta (leche, café en grano)
+      const tipoDe = (p) => p.tipoProducto
+        || (p.esDirecto === false ? (p.inventario ? 'MATERIA_PRIMA' : 'PREPARADO') : 'DIRECTO');
+      const preparados = todosProductos.filter((p) => tipoDe(p) === 'PREPARADO');
+      const insumos = todosProductos.filter((p) => tipoDe(p) === 'MATERIA_PRIMA');
 
       setProductosPreparados(preparados);
       setInsumosDisponibles(insumos);

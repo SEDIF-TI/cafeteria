@@ -23,18 +23,18 @@ public record ProductoRequestRecord(
         @Min(value = 0, message = "El costo no puede ser negativo")
         BigDecimal costo,
 
-        @NotNull(message = "Debe especificar si el producto es directo")
-        Boolean esDirecto,
+        @NotNull(message = "Debe especificar el tipo de producto")
+        TipoProducto tipoProducto,
 
-        Long inventarioId, // Obligatorio si es directo
+        Long inventarioId, // Obligatorio si es DIRECTO o MATERIA_PRIMA
 
         @Min(value = 0, message = "El stock no puede ser negativo")
 
-        BigDecimal stock, // Obligatorio si es directo
+        BigDecimal stock, // Obligatorio si es DIRECTO o MATERIA_PRIMA
 
-        BigDecimal stockMinimo, // Obligatorio si es directo
+        BigDecimal stockMinimo, // Obligatorio si es DIRECTO o MATERIA_PRIMA
 
-        UnidadMedida unidadMedida, // Obligatorio si es directo
+        UnidadMedida unidadMedida, // Obligatorio si es DIRECTO o MATERIA_PRIMA
 
         @NotNull(message = "La categoría es obligatoria")
         Long categoriaId

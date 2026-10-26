@@ -43,39 +43,52 @@ public class ProductoService {
         Categoria categoria = categoriaRepository.findById(request.categoriaId())
                 .orElseThrow(() -> new EntityNotFoundException("Categoría no encontrada con id: " + request.categoriaId()));
 
-        BigDecimal precioVal = request.precio() != null ? request.precio() : BigDecimal.ZERO;
+        TipoProducto tipo = request.tipoProducto();
+        boolean esDirecto = (tipo == TipoProducto.DIRECTO);
+        // DIRECTO y MATERIA_PRIMA tienen stock propio; PREPARADO se calcula de la receta.
+        boolean usaInventarioPropio = (tipo == TipoProducto.DIRECTO || tipo == TipoProducto.MATERIA_PRIMA);
+
+        // La materia prima no se vende: su precio siempre es 0.
+        BigDecimal precioVal = (tipo == TipoProducto.MATERIA_PRIMA)
+                ? BigDecimal.ZERO
+                : (request.precio() != null ? request.precio() : BigDecimal.ZERO);
         BigDecimal costoVal = request.costo() != null ? request.costo() : BigDecimal.ZERO;
-        BigDecimal stockInicial = request.stock() != null ? request.stock() : BigDecimal.ZERO;
-        BigDecimal stockMinimo = request.stockMinimo() != null ? request.stockMinimo() : BigDecimal.ZERO;
-        UnidadMedida unidad = parseUnidadMedida(request.unidadMedida());
-        String nombreInv = "INV-" + request.nombre().trim();
 
-        Inventario inventario;
-        if (request.inventarioId() != null) {
-            inventario = inventarioRepository.findById(request.inventarioId())
-                    .orElseThrow(() -> new EntityNotFoundException("Inventario no encontrado con id: " + request.inventarioId()));
-        } else {
-            inventario = inventarioRepository.findByNombre(nombreInv)
-                    .orElseGet(() -> Inventario.builder()
-                            .nombre(nombreInv)
-                            .unidadMedida(unidad)
-                            .stockActual(stockInicial)
-                            .stockMinimo(stockMinimo)
-                            .activo(true)
-                            .build());
+        Inventario inventario = null;
+        if (usaInventarioPropio) {
+            final BigDecimal stockInicial = request.stock() != null ? request.stock() : BigDecimal.ZERO;
+            final BigDecimal stockMinimo = request.stockMinimo() != null ? request.stockMinimo() : BigDecimal.ZERO;
+            final UnidadMedida unidad = parseUnidadMedida(request.unidadMedida());
+            final String nombreInv = "INV-" + request.nombre().trim();
 
-            inventario.setStockActual(stockInicial);
-            inventario.setStockMinimo(stockMinimo);
-            inventario.setUnidadMedida(unidad);
-            inventario = inventarioRepository.save(inventario);
+            if (request.inventarioId() != null) {
+                inventario = inventarioRepository.findById(request.inventarioId())
+                        .orElseThrow(() -> new EntityNotFoundException("Inventario no encontrado con id: " + request.inventarioId()));
+            } else {
+                inventario = inventarioRepository.findByNombre(nombreInv)
+                        .orElseGet(() -> Inventario.builder()
+                                .nombre(nombreInv)
+                                .unidadMedida(unidad)
+                                .stockActual(stockInicial)
+                                .stockMinimo(stockMinimo)
+                                .activo(true)
+                                .build());
+
+                inventario.setStockActual(stockInicial);
+                inventario.setStockMinimo(stockMinimo);
+                inventario.setUnidadMedida(unidad);
+                inventario = inventarioRepository.save(inventario);
+            }
         }
+        // PREPARADO: inventario queda null (su disponibilidad se calcula de la receta).
 
         Producto producto = Producto.builder()
                 .nombre(request.nombre().trim())
                 .descripcion(request.descripcion() != null ? request.descripcion() : "")
                 .precio(precioVal)
                 .costo(costoVal)
-                .esDirecto(Boolean.TRUE.equals(request.esDirecto()))
+                .tipoProducto(tipo)
+                .esDirecto(esDirecto)
                 .inventario(inventario)
                 .categoria(categoria)
                 .build();
@@ -117,10 +130,17 @@ public class ProductoService {
         Categoria categoria = categoriaRepository.findById(request.categoriaId())
                 .orElseThrow(() -> new EntityNotFoundException("Categoría no encontrada con id: " + request.categoriaId()));
 
+        TipoProducto tipo = request.tipoProducto();
+        boolean esDirecto = (tipo == TipoProducto.DIRECTO);
+        boolean usaInventarioPropio = (tipo == TipoProducto.DIRECTO || tipo == TipoProducto.MATERIA_PRIMA);
+
         producto.setNombre(request.nombre().trim());
         producto.setDescripcion(request.descripcion() != null ? request.descripcion() : "");
-        producto.setPrecio(request.precio() != null ? request.precio() : BigDecimal.ZERO);
-        producto.setEsDirecto(Boolean.TRUE.equals(request.esDirecto()));
+        producto.setPrecio((tipo == TipoProducto.MATERIA_PRIMA)
+                ? BigDecimal.ZERO
+                : (request.precio() != null ? request.precio() : BigDecimal.ZERO));
+        producto.setTipoProducto(tipo);
+        producto.setEsDirecto(esDirecto);
         producto.setCategoria(categoria);
 
         // Lógica de costo y evaluación para actualización en cascada
@@ -129,28 +149,32 @@ public class ProductoService {
         producto.setCosto(nuevoCosto);
         boolean costoCambio = (costoAnterior == null || costoAnterior.compareTo(nuevoCosto) != 0);
 
-        BigDecimal stockVal = request.stock() != null ? request.stock() : BigDecimal.ZERO;
-        BigDecimal stockMinVal = request.stockMinimo() != null ? request.stockMinimo() : BigDecimal.ZERO;
-        UnidadMedida unidadVal = parseUnidadMedida(request.unidadMedida());
-        String nombreInv = "INV-" + request.nombre().trim();
+        if (usaInventarioPropio) {
+            BigDecimal stockVal = request.stock() != null ? request.stock() : BigDecimal.ZERO;
+            BigDecimal stockMinVal = request.stockMinimo() != null ? request.stockMinimo() : BigDecimal.ZERO;
+            UnidadMedida unidadVal = parseUnidadMedida(request.unidadMedida());
+            final String nombreInv = "INV-" + request.nombre().trim();
 
-        Inventario inventario = producto.getInventario();
+            Inventario inventario = producto.getInventario();
+            if (inventario == null) {
+                inventario = inventarioRepository.findByNombre(nombreInv)
+                        .orElseGet(() -> Inventario.builder()
+                                .nombre(nombreInv)
+                                .activo(true)
+                                .build());
+            }
 
-        if (inventario == null) {
-            inventario = inventarioRepository.findByNombre(nombreInv)
-                    .orElseGet(() -> Inventario.builder()
-                            .nombre(nombreInv)
-                            .activo(true)
-                            .build());
+            inventario.setNombre(nombreInv);
+            inventario.setStockActual(stockVal);
+            inventario.setStockMinimo(stockMinVal);
+            inventario.setUnidadMedida(unidadVal);
+
+            inventario = inventarioRepository.save(inventario);
+            producto.setInventario(inventario);
+        } else {
+            // PREPARADO: no usa inventario propio (su stock viene de la receta).
+            producto.setInventario(null);
         }
-
-        inventario.setNombre(nombreInv);
-        inventario.setStockActual(stockVal);
-        inventario.setStockMinimo(stockMinVal);
-        inventario.setUnidadMedida(unidadVal);
-
-        inventario = inventarioRepository.save(inventario);
-        producto.setInventario(inventario);
 
         Producto productoGuardado = productoRepository.save(producto);
 
@@ -201,7 +225,12 @@ public class ProductoService {
     }
 
     public BigDecimal calcularStockDisponible(Producto producto) {
-        if (Boolean.TRUE.equals(producto.getEsDirecto())) {
+        TipoProducto tipo = producto.getTipoProducto();
+        // PREPARADO calcula su disponibilidad desde la receta; DIRECTO y MATERIA_PRIMA
+        // usan su propio inventario. (tipo null = dato aun sin backfill: criterio legacy.)
+        boolean usaReceta = (tipo == TipoProducto.PREPARADO)
+                || (tipo == null && Boolean.FALSE.equals(producto.getEsDirecto()));
+        if (!usaReceta) {
             return (producto.getInventario() != null && producto.getInventario().getStockActual() != null)
                     ? producto.getInventario().getStockActual()
                     : BigDecimal.ZERO;

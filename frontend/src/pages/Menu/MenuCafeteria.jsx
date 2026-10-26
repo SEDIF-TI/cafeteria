@@ -10,6 +10,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutlined";
 import api from '../../api/axiosClient';
 
+// Tipo de producto: 'DIRECTO' | 'PREPARADO' | 'MATERIA_PRIMA'
+const tipoDe = (p) => p?.tipoProducto
+  || (p?.esDirecto === false ? (p?.inventario ? 'MATERIA_PRIMA' : 'PREPARADO') : 'DIRECTO');
+
 export default function MenuCafeteria() {
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
@@ -162,10 +166,10 @@ export default function MenuCafeteria() {
                     size="small" 
                     variant="outlined" 
                   />
-                  <Chip 
-                    label={prod.esDirecto ? 'Venta Directa' : 'Preparado'} 
-                    color={prod.esDirecto ? 'info' : 'secondary'} 
-                    size="small" 
+                  <Chip
+                    label={tipoDe(prod) === 'DIRECTO' ? 'Venta Directa' : tipoDe(prod) === 'PREPARADO' ? 'Preparado' : 'Materia Prima'}
+                    color={tipoDe(prod) === 'DIRECTO' ? 'info' : tipoDe(prod) === 'PREPARADO' ? 'secondary' : 'default'}
+                    size="small"
                   />
                 </Box>
               </CardContent>
@@ -186,8 +190,8 @@ export default function MenuCafeteria() {
                   </Typography>
                 </Box>
 
-                {/* Botón de Receta para productos preparados */}
-                {!prod.esDirecto && (
+                {/* Botón de Receta solo para productos preparados */}
+                {tipoDe(prod) === 'PREPARADO' && (
                   <Button 
                     size="small" 
                     startIcon={<RestaurantMenuIcon />}
