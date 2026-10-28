@@ -16,6 +16,7 @@ import { AuthContext } from '../../context/AuthContext'; // Asegúrate de que la
 import api from '../../api/axiosClient';
 
 import logoPuebla from '../../assets/logo-puebla.png';
+import logoCorazon from '../../assets/LogoCorazo.png';
 
 const Login = () => {
   const [identificador, setIdentificador] = useState('');
@@ -26,7 +27,7 @@ const Login = () => {
 
   const navigate = useNavigate();
   // Traemos la función de login desde tu contexto global
-  const { login } = useContext(AuthContext);
+  const { establecerSesionPersonal } = useContext(AuthContext);
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
   const handleMouseDownPassword = (event) => event.preventDefault();
@@ -37,23 +38,22 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // 1) Se intenta como personal del sistema (tabla usuario).
-      await login(identificador, password);
-      navigate('/dashboard');
-    } catch (errStaff) {
-      // 2) Si no es personal, se intenta como cliente (tabla cliente, con su propio token).
-      try {
-        const res = await api.post('/clientes/login', {
-          numeroControlEmpleado: identificador,
-          password
-        });
+      // Acceso unificado: una sola petición que resuelve personal o cliente.
+      const res = await api.post('/auth/acceso', { identificador, password });
+      const { tipo, data } = res.data;
+
+      if (tipo === 'CLIENTE') {
         localStorage.removeItem('user'); // por si quedó una sesión de personal
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('clienteSesion', JSON.stringify(res.data));
-        navigate(res.data.debeCambiarPassword ? '/cliente/cambiar-password' : '/cliente/mi-apartado');
-      } catch (errCliente) {
-        setError('Credenciales incorrectas o la cuenta está inactiva.');
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('clienteSesion', JSON.stringify(data));
+        navigate(data.debeCambiarPassword ? '/cliente/cambiar-password' : '/cliente/mi-apartado');
+      } else {
+        localStorage.removeItem('clienteSesion'); // por si quedó una sesión de cliente
+        establecerSesionPersonal(data);
+        navigate('/dashboard');
       }
+    } catch (err) {
+      setError('Credenciales incorrectas o la cuenta está inactiva.');
     } finally {
       setIsLoading(false);
     }
@@ -82,11 +82,16 @@ const Login = () => {
           textAlign: 'center',
         }}
       >
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
           <img
             src={logoPuebla}
             alt="Gobierno del Estado"
             style={{ maxHeight: '120px', objectFit: 'contain' }}
+          />
+          <img
+            src={logoCorazon}
+            alt="Logo Corazón"
+            style={{ maxHeight: '90px', objectFit: 'contain' }}
           />
         </Box>
 
@@ -110,7 +115,7 @@ const Login = () => {
         <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
-            label="Correo electrónico o usuario *"
+            label="N° de Control o Usuario *"
             variant="outlined"
             margin="normal"
             value={identificador}

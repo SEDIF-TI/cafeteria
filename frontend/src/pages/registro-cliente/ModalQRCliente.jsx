@@ -48,7 +48,7 @@ export default function ModalQRCliente({ open, onClose }) {
               padding: 40px;
             }
             h1 {
-              color: #691c32;
+              color: #fc6c9c;
               font-size: 36px;
               margin: 0 0 8px 0;
               font-weight: 900;
@@ -62,7 +62,7 @@ export default function ModalQRCliente({ open, onClose }) {
             .marco-qr {
               background: #ffffff;
               padding: 24px;
-              border: 4px solid #691c32;
+              border: 4px solid #fc6c9c;
               border-radius: 20px;
               display: inline-block;
               box-shadow: 0 6px 18px rgba(0,0,0,0.06);
@@ -110,32 +110,42 @@ export default function ModalQRCliente({ open, onClose }) {
         <DialogTitle sx={{ textAlign: 'center', fontWeight: '900', fontSize: '1.6rem', pb: 0.5, color: 'primary.main' }}>
           Registro de Cliente
         </DialogTitle>
-        <Typography variant="subtitle1" textAlign="center" fontWeight="bold" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            textAlign: "center",
+            fontWeight: "bold",
+            color: "text.secondary",
+            mb: 2
+          }}>
           SEDIF Cafetería
         </Typography>
 
         <DialogContent sx={{ p: 1, overflow: 'hidden' }}>
-          <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <Box 
               id="qr-svg-container"
               sx={{ 
                 background: 'white', 
                 p: 2.5, 
                 display: 'inline-block', 
-                border: '3px solid #691c32', 
+                border: '3px solid #fc6c9c',
                 borderRadius: '16px'
               }}
             >
               <QRCode value={urlRegistro} size={220} />
             </Box>
 
-            <Typography 
-              variant="body1" 
-              textAlign="center" 
-              fontWeight="600" 
-              color="text.primary" 
-              sx={{ mt: 3, px: 2, fontSize: '1.05rem' }}
-            >
+            <Typography
+              variant="body1"
+              sx={{
+                textAlign: "center",
+                fontWeight: "600",
+                color: "text.primary",
+                mt: 3,
+                px: 2,
+                fontSize: '1.05rem'
+              }}>
               Escanea con tu celular para registrarte y consultar tus tickets digitales.
             </Typography>
           </Box>

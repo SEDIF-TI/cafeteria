@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -79,31 +80,43 @@ public class UtensilioService {
      */
     @Transactional
     public PrestamoUtensilio registrarPrestamo(PrestamoUtensilioRequestRecord request, Venta venta, Cliente cliente) {
-        String codigo = request.codigoEmpleado().trim();
+        String codigo = request.codigoEmpleado() != null ? request.codigoEmpleado().trim() : "";
 
         // Si la venta no trae cliente, se intenta identificar al empleado por su numero de control
         Cliente empleado = cliente != null ? cliente
-                : clienteRepository.findFirstByNumeroControlEmpleado(codigo).orElse(null);
+                : (!codigo.isBlank() ? clienteRepository.findFirstByNumeroControlEmpleado(codigo).orElse(null) : null);
 
+        // Area: la indicada, o la del empleado; si no hay ninguna (publico general sin area) -> "Sin area"
         String area = request.area() != null && !request.area().isBlank() ? request.area().trim()
                 : (empleado != null ? empleado.getArea() : null);
         if (area == null || area.isBlank()) {
-            throw new IllegalArgumentException("Indica el area a la que se llevan los cubiertos.");
+            area = "Sin area";
         }
+
+        // Nombre/referencia: el del empleado, o el capturado a mano (publico general)
+        String nombreRef = empleado != null ? empleado.getNombre()
+                : (request.nombre() != null && !request.nombre().isBlank() ? request.nombre().trim() : null);
 
         PrestamoUtensilio prestamo = PrestamoUtensilio.builder()
                 .venta(venta)
                 .cliente(empleado)
                 .codigoEmpleado(codigo)
-                .nombreEmpleado(empleado != null ? empleado.getNombre() : null)
+                .nombreEmpleado(nombreRef)
                 .area(area)
                 .observaciones(request.observaciones())
                 .fechaSalida(LocalDateTime.now())
                 .estado(EstadoPrestamo.PRESTADO)
                 .build();
 
+        // Normalmente el frontend solo manda las banderas del kit; aqui se arma.
+        // Si viniera una lista explicita de utensilios, esa tiene prioridad.
+        int juegos = request.juegos() != null && request.juegos() > 0 ? request.juegos() : 1;
+        List<ItemUtensilioRequestRecord> items = (request.utensilios() != null && !request.utensilios().isEmpty())
+                ? request.utensilios()
+                : construirKit(juegos, Boolean.TRUE.equals(request.incluyeCharola()));
+
         // Agrupa por utensilio por si el mismo viene repetido en la lista
-        Map<Long, Integer> cantidades = request.utensilios().stream()
+        Map<Long, Integer> cantidades = items.stream()
                 .collect(Collectors.toMap(ItemUtensilioRequestRecord::utensilioId,
                         ItemUtensilioRequestRecord::cantidad, Integer::sum));
 
@@ -204,6 +217,22 @@ public class UtensilioService {
     }
 
     // ---------------------------------------------------------------- Auxiliares
+
+    /** Arma el kit estandar que se entrega con cada comida: N juegos de cada pieza base (+ charola). */
+    private List<ItemUtensilioRequestRecord> construirKit(int juegos, boolean incluyeCharola) {
+        List<String> nombres = new ArrayList<>(SeedUtensiliosEstandar.KIT_BASE);
+        if (incluyeCharola) {
+            nombres.add(SeedUtensiliosEstandar.CHAROLA);
+        }
+        List<ItemUtensilioRequestRecord> items = new ArrayList<>();
+        for (String nombre : nombres) {
+            Utensilio u = utensilioRepository.findByNombreIgnoreCase(nombre)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Falta el utensilio estandar '" + nombre + "'. Reinicia el backend para recrearlo."));
+            items.add(new ItemUtensilioRequestRecord(u.getId(), juegos));
+        }
+        return items;
+    }
 
     private Utensilio buscarUtensilio(Long id) {
         return utensilioRepository.findById(id)

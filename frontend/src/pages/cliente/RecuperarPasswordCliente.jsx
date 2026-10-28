@@ -60,7 +60,13 @@ export default function RecuperarPasswordCliente() {
   return (
     <Container maxWidth="xs" sx={{ mt: 8, mb: 4 }}>
       <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
-        <Typography variant="h5" fontWeight="bold" gutterBottom textAlign="center">
+        <Typography
+          variant="h5"
+          gutterBottom
+          sx={{
+            fontWeight: "bold",
+            textAlign: "center"
+          }}>
           Recuperar contraseña
         </Typography>
         {info && <Alert severity="info" sx={{ mb: 2 }}>{info}</Alert>}
@@ -68,7 +74,12 @@ export default function RecuperarPasswordCliente() {
 
         {paso === 1 ? (
           <Box component="form" onSubmit={solicitar}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 1
+              }}>
               Te enviaremos un código a tu correo registrado. Si no registraste correo, acude con el administrador.
             </Typography>
             <TextField label="Número de control / empleado" fullWidth required margin="normal"
@@ -81,7 +92,9 @@ export default function RecuperarPasswordCliente() {
         ) : (
           <Box component="form" onSubmit={confirmar_}>
             <TextField label="Código recibido por correo" fullWidth required margin="normal"
-              value={codigo} onChange={(e) => setCodigo(e.target.value)} inputProps={{ inputMode: 'numeric' }} />
+              value={codigo} onChange={(e) => setCodigo(e.target.value)} slotProps={{
+              htmlInput: { inputMode: 'numeric' }
+            }} />
             <TextField label="Nueva contraseña" type="password" fullWidth required margin="normal"
               value={passwordNueva} onChange={(e) => setPasswordNueva(e.target.value)} helperText="Mínimo 6 caracteres" />
             <TextField label="Confirmar nueva contraseña" type="password" fullWidth required margin="normal"

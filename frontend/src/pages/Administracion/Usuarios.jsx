@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Button,
@@ -22,6 +22,8 @@ import {
   Stack
 } from '@mui/material';
 import api from '../../api/axiosClient'; // Ajusta la ruta si es necesario
+import usePaginacion from '../../hooks/usePaginacion';
+import PaginacionTabla from '../../components/PaginacionTabla';
 
 import IconButton from '@mui/material/IconButton';
 import EditIcon from '@mui/icons-material/Edit';
@@ -41,7 +43,9 @@ export default function Usuarios() {
   });
 
   const [passwordCreada, setPasswordCreada] = useState(null);
-  
+  const [usuarioReset, setUsuarioReset] = useState(null); // usuario pendiente de confirmar reset
+  const [usuarioEstado, setUsuarioEstado] = useState(null); // usuario pendiente de confirmar cambio de estado
+
   const [modalMensaje, setModalMensaje] = useState({
     open: false,
     titulo: '',
@@ -126,7 +130,9 @@ export default function Usuarios() {
   };
 
   // Restablecer la contraseña del personal (Opción B: sin correo, el admin la entrega en mano)
+  // Se llama solo tras confirmar en el diálogo.
   const handleResetPassword = async (usuario) => {
+    setUsuarioReset(null);
     try {
       const response = await api.put(`/usuarios/${usuario.id}/restablecer-password`);
       const data = response.data.data || response.data;
@@ -148,8 +154,9 @@ export default function Usuarios() {
     }
   };
 
-  // Función para cambiar el estado del usuario
+  // Función para cambiar el estado del usuario (se llama solo tras confirmar).
   const handleToggleEstado = async (usuario) => {
+    setUsuarioEstado(null);
     try {
       const nuevoEstado = !usuario.activo;
       await api.put(`/usuarios/${usuario.id}/estado`, nuevoEstado, {
@@ -177,10 +184,17 @@ export default function Usuarios() {
     }
   };
 
+  // Personal ordenado alfabéticamente (sin importar su estado) + paginación.
+  const usuariosOrdenados = useMemo(
+    () => [...usuarios].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' })),
+    [usuarios]
+  );
+  const pag = usePaginacion(usuariosOrdenados);
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       {/* Encabezado: Título a la izquierda, Botón a la derecha */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Button 
           variant="contained" 
           color="primary"
@@ -207,7 +221,7 @@ export default function Usuarios() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {usuarios.map((usuario) => (
+            {pag.pagina.map((usuario) => (
               <TableRow key={usuario.id} hover>
                 <TableCell>{usuario.nombre}</TableCell>
                 <TableCell>{usuario.username}</TableCell>
@@ -223,7 +237,7 @@ export default function Usuarios() {
                 </TableCell>
                 <TableCell align="center">
                   {/* Contenedor Stack para alinear y centrar perfectamente los iconos */}
-                  <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
+                  <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>
                     <IconButton 
                       color="primary"
                       onClick={() => handleOpenEdit(usuario)}
@@ -233,14 +247,14 @@ export default function Usuarios() {
                     </IconButton>
                     <IconButton
                       color="warning"
-                      onClick={() => handleResetPassword(usuario)}
+                      onClick={() => setUsuarioReset(usuario)}
                       title="Restablecer contraseña"
                     >
                       <LockResetIcon />
                     </IconButton>
                     <IconButton
                       color={usuario.activo ? 'error' : 'success'}
-                      onClick={() => handleToggleEstado(usuario)}
+                      onClick={() => setUsuarioEstado(usuario)}
                       title={usuario.activo ? 'Desactivar' : 'Activar'}
                     >
                       {usuario.activo ? <PersonOffIcon /> : <PersonAddIcon />}
@@ -250,10 +264,12 @@ export default function Usuarios() {
               </TableRow>
             ))}
             
-            {usuarios.length === 0 && (
+            {usuariosOrdenados.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1" sx={{
+                    color: "text.secondary"
+                  }}>
                     No hay usuarios registrados.
                   </Typography>
                 </TableCell>
@@ -261,28 +277,32 @@ export default function Usuarios() {
             )}
           </TableBody>
         </Table>
+        {usuariosOrdenados.length > 0 && <PaginacionTabla pag={pag} />}
       </TableContainer>
 
       {/* Modal de Creación / Edición */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold' }}>
+        <DialogTitle sx={{ fontWeight: 'bold', pb: 1 }}>
           {editingUserId ? 'Editar Usuario' : 'Nuevo Usuario'}
         </DialogTitle>
-        <DialogContent>
-          <Box display="flex" flexDirection="column" gap={3} mt={2}>
+        <DialogContent sx={{ px: 3, pt: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', pt: 1 }}>
             <TextField
+              margin="normal"
               label="Nombre Completo"
               fullWidth
               value={formData.nombre}
               onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
             />
             <TextField
+              margin="normal"
               label="Nombre de Usuario (Login)"
               fullWidth
               value={formData.username}
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
             />
             <TextField
+              margin="normal"
               select
               label="Rol del Sistema"
               fullWidth
@@ -296,11 +316,56 @@ export default function Usuarios() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button onClick={() => setOpenDialog(false)} color="inherit" sx={{ fontWeight: 'bold' }}>
+          <Button onClick={() => setOpenDialog(false)} variant="contained" color="error" sx={{ fontWeight: 'bold' }}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary" sx={{ fontWeight: 'bold' }}>
+          <Button onClick={handleSubmit} variant="contained" color="success" sx={{ fontWeight: 'bold' }}>
             Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirmación antes de restablecer la contraseña */}
+      <Dialog open={!!usuarioReset} onClose={() => setUsuarioReset(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Restablecer contraseña</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'text.primary' }}>
+            Se generará una nueva contraseña temporal para <b>{usuarioReset?.nombre}</b> y
+            deberá cambiarla al iniciar sesión. ¿Deseas continuar?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button variant="contained" color="error" onClick={() => setUsuarioReset(null)}>
+            Cancelar
+          </Button>
+          <Button variant="contained" color="success" onClick={() => handleResetPassword(usuarioReset)}>
+            Confirmar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirmación antes de activar / desactivar un usuario */}
+      <Dialog open={!!usuarioEstado} onClose={() => setUsuarioEstado(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>
+          {usuarioEstado?.activo ? 'Desactivar usuario' : 'Activar usuario'}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'text.primary' }}>
+            {usuarioEstado?.activo
+              ? <>El usuario <b>{usuarioEstado?.nombre}</b> quedará <b>inactivo</b> y no podrá iniciar sesión. ¿Deseas continuar?</>
+              : <>El usuario <b>{usuarioEstado?.nombre}</b> volverá a estar <b>activo</b> y podrá iniciar sesión. ¿Deseas continuar?</>}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button variant="contained" color="error" onClick={() => setUsuarioEstado(null)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={() => handleToggleEstado(usuarioEstado)}
+          >
+            {usuarioEstado?.activo ? 'Desactivar' : 'Activar'}
           </Button>
         </DialogActions>
       </Dialog>

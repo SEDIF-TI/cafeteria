@@ -1,5 +1,5 @@
 import { useState, useContext, useEffect } from 'react';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet, Navigate } from 'react-router-dom';
 import {
   Box,
   Drawer,
@@ -14,7 +14,14 @@ import {
   ListItemIcon,
   ListItemText,
   Avatar,
-  Button
+  Button,
+  useMediaQuery,
+  useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -30,15 +37,26 @@ import PeopleIcon from '@mui/icons-material/People';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
+import TvIcon from '@mui/icons-material/Tv';
 
 import { AuthContext } from '../context/AuthContext';
 import PieDePagina from './PieDePagina';
+import api from '../api/axiosClient';
+import { useFeedback } from './FeedbackProvider';
 
 const drawerWidth = 260;
 
+// Rutas del panel permitidas al cajero (el resto se bloquea por URL y se redirige).
+const RUTAS_CAJERO = ['/dashboard/ventas', '/dashboard/caja', '/dashboard/utensilios', '/dashboard/deudores'];
+
 export default function MainLayout() {
   const { logout } = useContext(AuthContext);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const { notificar } = useFeedback();
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('sm'));
+  const [mobileOpen, setMobileOpen] = useState(false);   // drawer temporal (móvil)
+  const [desktopOpen, setDesktopOpen] = useState(true);  // barra lateral visible en escritorio
+  const [openLogout, setOpenLogout] = useState(false);   // confirmación de cerrar sesión
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -56,30 +74,69 @@ export default function MainLayout() {
     }
   }, [navigate]);
 
+  // El cajero solo puede entrar a sus pantallas; cualquier otra ruta del panel
+  // (incluido el Dashboard al iniciar) lo manda al Punto de Venta. Se decide en el
+  // render (no en un efecto) para que la página prohibida ni siquiera se monte:
+  // si se montara, alcanzaría a pedir sus datos y el backend respondería 403.
+  const rutaPermitida = esAdmin || RUTAS_CAJERO.some(
+    (r) => location.pathname === r || location.pathname.startsWith(`${r}/`)
+  );
+
+  // Aviso de stock bajo al iniciar sesión (una sola vez por sesión).
+  // El stock bajo es un ESTADO persistente: el detalle vive en el Dashboard;
+  // aquí solo recordamos al entrar que hay insumos por reabastecer.
+  useEffect(() => {
+    if (sessionStorage.getItem('stockAvisado')) return;
+    let activo = true;
+    (async () => {
+      try {
+        const res = await api.get('/dashboard/resumen', { params: { dias: 1 } });
+        const n = Number(res.data?.kpis?.insumosBajoMinimo) || 0;
+        if (activo && n > 0) {
+          notificar(`Hay ${n} insumo${n === 1 ? '' : 's'} por reabastecer. Revísalos en el Dashboard.`, 'warning');
+        }
+      } catch {
+        /* silencioso: si el resumen no está disponible, no molestamos al usuario */
+      } finally {
+        sessionStorage.setItem('stockAvisado', '1');
+      }
+    })();
+    return () => { activo = false; };
+  }, [notificar]);
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  // El botón de menú oculta/muestra la barra: en escritorio colapsa la fija,
+  // en móvil abre/cierra el panel deslizante.
+  const handleMenuToggle = () => {
+    if (isDesktop) setDesktopOpen((o) => !o);
+    else setMobileOpen((o) => !o);
+  };
+
   const handleLogout = () => {
+    sessionStorage.removeItem('stockAvisado'); // para que el aviso de stock vuelva a salir en el próximo inicio de sesión
     logout();
     navigate('/login', { replace: true });
   };
 
-  // soloAdmin: true -> la opcion solo se muestra a perfiles de administrador.
+  // cajero: true -> la opcion también se muestra al cajero. El admin ve todo.
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Categorías', icon: <CategoryIcon />, path: '/dashboard/categorias', soloAdmin: true },
-    { text: 'Menú de Cafetería', icon: <RestaurantMenuIcon />, path: '/dashboard/menu', soloAdmin: true },
-    { text: 'Punto de Venta', icon: <PointOfSaleIcon />, path: '/dashboard/ventas' },
-    { text: 'Caja y Turnos', icon: <AccountBalanceWalletIcon />, path: '/dashboard/caja' },
+    { text: 'Categorías', icon: <CategoryIcon />, path: '/dashboard/categorias' },
+    { text: 'Menú de Cafetería', icon: <RestaurantMenuIcon />, path: '/dashboard/menu' },
+    { text: 'Punto de Venta', icon: <PointOfSaleIcon />, path: '/dashboard/ventas', cajero: true },
+    { text: 'Caja y Turnos', icon: <AccountBalanceWalletIcon />, path: '/dashboard/caja', cajero: true },
     { text: 'Historial de Ventas', icon: <ReceiptLongIcon />, path: '/dashboard/historial-ventas' },
-    { text: 'Inventario (Prod. Terminados)', icon: <InventoryIcon />, path: '/dashboard/inventario', soloAdmin: true },
-    { text: 'Utensilios (Cubiertos)', icon: <RestaurantIcon />, path: '/dashboard/utensilios' },
-    { text: 'Recetas', icon: <RestaurantMenuIcon />, path: '/dashboard/recetas', soloAdmin: true },
-    { text: 'Personal', icon: <GroupIcon />, path: '/dashboard/usuarios', soloAdmin: true },
-    { text: 'Créditos y abonos', icon: <MoneyOffIcon />, path: '/dashboard/deudores' },
+    { text: 'Inventario (Prod. Terminados)', icon: <InventoryIcon />, path: '/dashboard/inventario' },
+    { text: 'Recolección de cubiertos', icon: <RestaurantIcon />, path: '/dashboard/utensilios', cajero: true },
+    { text: 'Recetas', icon: <RestaurantMenuIcon />, path: '/dashboard/recetas' },
+    { text: 'Personal', icon: <GroupIcon />, path: '/dashboard/usuarios' },
+    { text: 'Créditos y abonos', icon: <MoneyOffIcon />, path: '/dashboard/deudores', cajero: true },
     { text: 'Clientes', icon: <PeopleIcon />, path: '/dashboard/clientes' },
-  ].filter((item) => esAdmin || !item.soloAdmin);
+    { text: 'Pantalla del menú (TV)', icon: <TvIcon />, path: '/pantalla-menu', nuevaPestana: true, cajero: true },
+  ].filter((item) => esAdmin || item.cajero);
 
   const drawerContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
@@ -95,13 +152,13 @@ export default function MainLayout() {
           return (
             <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
               <ListItemButton
-                onClick={() => navigate(item.path)}
+                onClick={() => item.nuevaPestana ? window.open(item.path, '_blank') : navigate(item.path)}
                 selected={isActive}
                 sx={{
                   borderRadius: '10px',
                   py: 1.2,
                   backgroundColor: isActive ? '#fdf2f4' : 'transparent',
-                  color: isActive ? '#691c32' : '#475569',
+                  color: isActive ? '#fc6c9c' : '#475569',
                   '&.Mui-selected': {
                     backgroundColor: '#fdf2f4',
                     color: 'primary.main',
@@ -110,12 +167,12 @@ export default function MainLayout() {
                   '&:hover': { backgroundColor: '#f8fafc', color: '#1e293b' },
                 }}
               >
-                <ListItemIcon sx={{ color: isActive ? '#691c32' : '#94a3b8', minWidth: '40px' }}>
+                <ListItemIcon sx={{ color: isActive ? '#fc6c9c' : '#94a3b8', minWidth: '40px' }}>
                   {item.icon}
                 </ListItemIcon>
                 <ListItemText 
                   primary={item.text} 
-                  primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: isActive ? 600 : 500 }} 
+                  slotProps={{ primary: { fontSize: '0.9rem', fontWeight: isActive ? 600 : 500 } }}
                 />
               </ListItemButton>
             </ListItem>
@@ -131,21 +188,22 @@ export default function MainLayout() {
         position="fixed"
         elevation={0}
         sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
+          width: { sm: desktopOpen ? `calc(100% - ${drawerWidth}px)` : '100%' },
+          ml: { sm: desktopOpen ? `${drawerWidth}px` : 0 },
           backgroundColor: '#ffffff',
           color: '#1e293b',
           borderBottom: '1px solid #e2e8f0',
+          transition: theme.transitions.create(['width', 'margin'], { duration: theme.transitions.duration.shorter }),
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between', px: { xs: 2, sm: 4 } }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <IconButton
               color="inherit"
-              aria-label="open drawer"
+              aria-label="mostrar u ocultar menú"
               edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { sm: 'none' } }}
+              onClick={handleMenuToggle}
+              sx={{ mr: 2 }}
             >
               <MenuIcon />
             </IconButton>
@@ -157,7 +215,7 @@ export default function MainLayout() {
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Button
-              onClick={handleLogout}
+              onClick={() => setOpenLogout(true)}
               variant="text"
               startIcon={<LogoutIcon />}
               sx={{
@@ -175,14 +233,21 @@ export default function MainLayout() {
               Cerrar sesión
             </Button>
             
-            <Avatar sx={{ width: 38, height: 38, backgroundColor: 'primary.main', fontSize: '0.9rem', boxShadow: '0 2px 8px rgba(105, 28, 50, 0.2)' }}>
+            <Avatar sx={{ width: 38, height: 38, backgroundColor: 'primary.main', fontSize: '0.9rem', boxShadow: '0 2px 8px rgba(252, 108, 156, 0.3)' }}>
               <AccountCircleIcon />
             </Avatar>
           </Box>
         </Toolbar>
       </AppBar>
 
-      <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
+      <Box
+        component="nav"
+        sx={{
+          width: { sm: desktopOpen ? drawerWidth : 0 },
+          flexShrink: { sm: 0 },
+          transition: theme.transitions.create('width', { duration: theme.transitions.duration.shorter }),
+        }}
+      >
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -197,11 +262,11 @@ export default function MainLayout() {
         </Drawer>
         <Drawer
           variant="permanent"
+          open={desktopOpen}
           sx={{
-            display: { xs: 'none', sm: 'block' },
+            display: { xs: 'none', sm: desktopOpen ? 'block' : 'none' },
             '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, borderRight: '1px solid #e2e8f0' },
           }}
-          open
         >
           {drawerContent}
         </Drawer>
@@ -211,31 +276,56 @@ export default function MainLayout() {
         component="main"
         sx={{
           flexGrow: 1,
-          // Espaciado generoso y responsivo para que el contenido respire,
-          // con mas aire arriba (el contenido ya no queda pegado al AppBar).
-          px: { xs: 2, sm: 3, md: 4 },
-          pt: { xs: 3, sm: 4, md: 5 },
-          pb: { xs: 4, sm: 6 },
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          width: { sm: desktopOpen ? `calc(100% - ${drawerWidth}px)` : '100%' },
           mt: '64px',
+          transition: theme.transitions.create('width', { duration: theme.transitions.duration.shorter }),
           backgroundColor: '#f8fafc',
           minHeight: 'calc(100vh - 64px)',
-          boxSizing: 'border-box', // OBLIGA a que el padding se calcule hacia adentro
+          boxSizing: 'border-box',
           overflowX: 'hidden', // CLAVE: Evita que las gráficas rompan el contenedor
-          // Columna flex para que el pie de página (mt: auto) quede siempre al fondo.
+          // Columna flex: el bloque de contenido crece y empuja el pie de página
+          // al fondo, que al ser hermano directo abarca todo el ancho sin padding.
           display: 'flex',
           flexDirection: 'column'
         }}
       >
-        {/* Contenedor que centra y limita el ancho en pantallas grandes, para que
-            el contenido no quede estirado de borde a borde. */}
-        <Box sx={{ maxWidth: 1400, mx: 'auto', width: '100%' }}>
-          <Outlet />
+        {/* Bloque con el padding generoso. El pie de página queda FUERA de este
+            bloque para poder llegar de borde a borde y pegarse al fondo. */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            px: { xs: 2, sm: 3, md: 4 },
+            pt: { xs: 3, sm: 4, md: 5 },
+            pb: { xs: 4, sm: 6 },
+            width: '100%',
+            boxSizing: 'border-box',
+          }}
+        >
+          {/* Contenedor que centra y limita el ancho en pantallas grandes. */}
+          <Box sx={{ maxWidth: 1400, mx: 'auto', width: '100%' }}>
+            {rutaPermitida ? <Outlet /> : <Navigate to="/dashboard/ventas" replace />}
+          </Box>
         </Box>
 
-        {/* Pie de página común a todas las vistas */}
+        {/* Pie de página común a todas las vistas (barra inferior a todo lo ancho) */}
         <PieDePagina />
       </Box>
+
+      {/* Confirmación de cerrar sesión */}
+      <Dialog open={openLogout} onClose={() => setOpenLogout(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Cerrar sesión</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'text.primary' }}>
+            ¿Seguro que deseas cerrar sesión?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button variant="contained" color="error" onClick={() => setOpenLogout(false)}>Cancelar</Button>
+          <Button variant="contained" color="success" startIcon={<LogoutIcon />} onClick={handleLogout}>
+            Cerrar sesión
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

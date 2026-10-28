@@ -14,6 +14,10 @@ public record TurnoResponse(
         BigDecimal totalEsperado,
         BigDecimal totalContado,
         BigDecimal diferencia,
+        String autorizadoPor,
+        String motivoDiferencia,
+        String corregidoPor,
+        String motivoCorreccion,
         Boolean estaActivo
 ) {
     public TurnoResponse(Turno turno) {
@@ -29,6 +33,10 @@ public record TurnoResponse(
                 nz(turno.getFondoInicial()).add(nz(turno.getTotalIngresos())),
                 turno.getTotalFisicoCierre(),
                 turno.getDiferencia(),
+                turno.getAutorizadoPor(),
+                turno.getMotivoDiferencia(),
+                turno.getCorregidoPor(),
+                turno.getMotivoCorreccion(),
                 turno.getEstaActivo()
         );
     }

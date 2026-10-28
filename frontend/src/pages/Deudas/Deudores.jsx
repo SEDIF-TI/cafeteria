@@ -24,6 +24,8 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import PaymentIcon from '@mui/icons-material/Payment';
 import { useFeedback } from '../../components/FeedbackProvider';
+import usePaginacion from '../../hooks/usePaginacion';
+import PaginacionTabla from '../../components/PaginacionTabla';
 
 export default function Deudores() {
   const { notificar, cargar, finalizarCarga } = useFeedback();
@@ -70,10 +72,14 @@ export default function Deudores() {
     obtenerDeudores();
   }, []);
 
-  const deudoresFiltrados = deudores.filter(d => 
-    d.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-    d.area.toLowerCase().includes(busqueda.toLowerCase())
-  );
+  const deudoresFiltrados = deudores
+    .filter(d =>
+      d.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+      d.area.toLowerCase().includes(busqueda.toLowerCase())
+    )
+    .sort((a, b) => (b.id || 0) - (a.id || 0)); // más recientes primero
+
+  const pag = usePaginacion(deudoresFiltrados);
 
   const handleOpenAbono = (deudor) => {
     setDeudorSeleccionado(deudor);
@@ -126,7 +132,13 @@ export default function Deudores() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <PaymentIcon color="primary" fontSize="large" />
-          <Typography variant="h4" component="h1" fontWeight="bold" color="text.primary">
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{
+              fontWeight: "bold",
+              color: "text.primary"
+            }}>
             Créditos y abonos
           </Typography>
         </Box>
@@ -135,14 +147,16 @@ export default function Deudores() {
           size="small"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon color="action" />
-              </InputAdornment>
-            ),
-          }}
           sx={{ backgroundColor: 'white', borderRadius: 1, width: '300px' }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+            }
+          }}
         />
       </Box>
 
@@ -159,7 +173,7 @@ export default function Deudores() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {deudoresFiltrados.map((item) => (
+            {pag.pagina.map((item) => (
               <TableRow key={item.id} hover>
                 <TableCell>{item.nombre}</TableCell>
                 <TableCell>{item.area}</TableCell>
@@ -191,12 +205,15 @@ export default function Deudores() {
             {deudoresFiltrados.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                  <Typography color="text.secondary">No hay créditos pendientes por cobrar.</Typography>
+                  <Typography sx={{
+                    color: "text.secondary"
+                  }}>No hay créditos pendientes por cobrar.</Typography>
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+        {deudoresFiltrados.length > 0 && <PaginacionTabla pag={pag} />}
       </TableContainer>
 
       {/* Modal para Abonar o Liquidar */}
@@ -208,7 +225,9 @@ export default function Deudores() {
               <Typography variant="body2">
                 Cliente / Empleado: <b>{deudorSeleccionado.nombre}</b>
               </Typography>
-              <Typography variant="body2" color="error.main">
+              <Typography variant="body2" sx={{
+                color: "error.main"
+              }}>
                 Adeudo Actual: <b>${Number(deudorSeleccionado.totalDeuda).toFixed(2)}</b>
               </Typography>
 
@@ -219,10 +238,11 @@ export default function Deudores() {
                 autoFocus
                 value={montoAbono}
                 onChange={(e) => setMontoAbono(e.target.value)}
-                inputProps={{ min: 0, step: 'any', max: deudorSeleccionado.totalDeuda }}
-                InputProps={{ startAdornment: <Typography sx={{ mr: 1 }}>$</Typography> }}
                 helperText="No puede ser mayor al adeudo"
-              />
+                slotProps={{
+                  input: { startAdornment: <Typography sx={{ mr: 1 }}>$</Typography> },
+                  htmlInput: { min: 0, step: 'any', max: deudorSeleccionado.totalDeuda }
+                }} />
               <Button size="small" variant="outlined" sx={{ alignSelf: 'flex-start' }}
                 onClick={() => setMontoAbono(Number(deudorSeleccionado.totalDeuda).toFixed(2))}>
                 Abonar todo (${Number(deudorSeleccionado.totalDeuda).toFixed(2)})
@@ -234,10 +254,11 @@ export default function Deudores() {
                 fullWidth
                 value={efectivoRecibido}
                 onChange={(e) => setEfectivoRecibido(e.target.value)}
-                inputProps={{ min: 0, step: 'any' }}
-                InputProps={{ startAdornment: <Typography sx={{ mr: 1 }}>$</Typography> }}
                 helperText="Lo que entrega el cliente, para calcular el cambio"
-              />
+                slotProps={{
+                  input: { startAdornment: <Typography sx={{ mr: 1 }}>$</Typography> },
+                  htmlInput: { min: 0, step: 'any' }
+                }} />
 
               {(() => {
                 const abono = parseFloat(montoAbono);
@@ -256,7 +277,7 @@ export default function Deudores() {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setModalAbono(false)} color="inherit">Cancelar</Button>
+          <Button onClick={() => setModalAbono(false)} variant="contained" color="error">Cancelar</Button>
           <Button 
             onClick={procesarPago} 
             variant="contained" 

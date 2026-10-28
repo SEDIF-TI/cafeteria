@@ -48,7 +48,9 @@ export default function RegistroClientePublico() {
     return (
       <Container maxWidth="xs" sx={{ mt: 8 }}>
         <Paper elevation={3} sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
-          <Typography variant="h5" color="primary" fontWeight="bold" gutterBottom>
+          <Typography variant="h5" color="primary" gutterBottom sx={{
+            fontWeight: "bold"
+          }}>
             ¡Registro Completado!
           </Typography>
           <Typography variant="body1" sx={{ mt: 2 }}>
@@ -62,10 +64,23 @@ export default function RegistroClientePublico() {
   return (
     <Container maxWidth="xs" sx={{ mt: 4, mb: 4 }}>
       <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
-        <Typography variant="h6" fontWeight="bold" align="center" sx={{ color: 'primary.main' }} gutterBottom>
+        <Typography
+          variant="h6"
+          align="center"
+          gutterBottom
+          sx={{
+            fontWeight: "bold",
+            color: 'primary.main'
+          }}>
           Registro de Cliente - SEDIF Cafetería
         </Typography>
-        <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
+        <Typography
+          variant="body2"
+          align="center"
+          sx={{
+            color: "text.secondary",
+            mb: 3
+          }}>
           Escanea y regístrate para recibir tus tickets de compra de forma digital.
         </Typography>
 

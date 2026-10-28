@@ -1,6 +1,9 @@
 package com.sedif.sistema_cafeteria.security.auth;
 
 import com.sedif.sistema_cafeteria.exception.ApiResponse;
+import com.sedif.sistema_cafeteria.core.cliente.ClienteAuthService;
+import com.sedif.sistema_cafeteria.core.cliente.ClienteLoginRequest;
+import com.sedif.sistema_cafeteria.core.cliente.ClienteLoginResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +32,28 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final ClienteAuthService clienteAuthService;
+
+    /**
+     * Acceso unificado: prueba primero como personal y, si falla, como cliente,
+     * en UNA sola petición. Así el navegador no registra un 400 cuando entra un
+     * cliente (antes se intentaba /auth/login y /clientes/login por separado).
+     */
+    @PostMapping("/acceso")
+    public ResponseEntity<Map<String, Object>> acceso(@Valid @RequestBody LoginRequest request) {
+        try {
+            JwtResponse r = authService.iniciarSesion(request);
+            return ResponseEntity.ok(Map.of("tipo", "STAFF", "data", r));
+        } catch (RuntimeException staffEx) {
+            try {
+                ClienteLoginResponse c = clienteAuthService.login(
+                        new ClienteLoginRequest(request.identificador(), request.password()));
+                return ResponseEntity.ok(Map.of("tipo", "CLIENTE", "data", c));
+            } catch (RuntimeException clienteEx) {
+                throw new IllegalArgumentException("Credenciales incorrectas o la cuenta está inactiva.");
+            }
+        }
+    }
 
     /**
      * Valida las credenciales y devuelve el JWT junto con los datos de sesion.

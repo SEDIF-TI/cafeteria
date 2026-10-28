@@ -51,7 +51,13 @@ export default function CambiarPasswordCliente() {
   return (
     <Container maxWidth="xs" sx={{ mt: 8, mb: 4 }}>
       <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
-        <Typography variant="h5" fontWeight="bold" gutterBottom textAlign="center">
+        <Typography
+          variant="h5"
+          gutterBottom
+          sx={{
+            fontWeight: "bold",
+            textAlign: "center"
+          }}>
           {esForzado ? 'Crea tu contraseña' : 'Cambiar contraseña'}
         </Typography>
         {esForzado && (

@@ -102,19 +102,29 @@ export default function MenuCafeteria() {
     }
   };
 
+  // En la carta solo van los productos de venta al consumidor (Venta Directa y
+  // Preparados). La materia prima / insumos NO se muestran aquí: viven en Inventario.
+  const vendibles = productos.filter((p) => tipoDe(p) !== 'MATERIA_PRIMA');
+
   // Filtrado de productos por pestaña
-  const productosFiltrados = categoriaSel === -1 
-    ? productos 
-    : productos.filter(p => p.categoria?.id === categoriaSel);
+  const productosFiltrados = categoriaSel === -1
+    ? vendibles
+    : vendibles.filter(p => p.categoria?.id === categoriaSel);
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box mb={3}>
+      <Box sx={{
+        mb: 3
+      }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
           <RestaurantMenuIcon color="primary" fontSize="large" />
-          <Typography variant="h4" fontWeight="bold">Menú y Carta de Cafetería</Typography>
+          <Typography variant="h4" sx={{
+            fontWeight: "bold"
+          }}>Menú y Carta de Cafetería</Typography>
         </Box>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           Activa o pausa la visibilidad de los platillos en la caja y gestiona la composición de insumos.
         </Typography>
       </Box>
@@ -139,7 +149,7 @@ export default function MenuCafeteria() {
       {/* Grid de Tarjetas del Menú */}
       <Grid container spacing={3}>
         {productosFiltrados.map((prod) => (
-          <Grid item xs={12} sm={6} md={4} key={prod.id}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={prod.id}>
             <Card 
               elevation={2} 
               sx={{ 
@@ -149,18 +159,28 @@ export default function MenuCafeteria() {
               }}
             >
               <CardContent sx={{ pb: 1 }}>
-                <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                  <Typography variant="h6" fontWeight="bold">{prod.nombre}</Typography>
-                  <Typography variant="h6" color="primary" fontWeight="bold">
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Typography variant="h6" sx={{
+                    fontWeight: "bold"
+                  }}>{prod.nombre}</Typography>
+                  <Typography variant="h6" color="primary" sx={{
+                    fontWeight: "bold"
+                  }}>
                     ${Number(prod.precio).toFixed(2)}
                   </Typography>
                 </Box>
 
-                <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40, my: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "text.secondary",
+                    minHeight: 40,
+                    my: 1
+                  }}>
                   {prod.descripcion || 'Sin descripción'}
                 </Typography>
 
-                <Box display="flex" gap={1} flexWrap="wrap">
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   <Chip 
                     label={prod.categoria?.nombre || 'General'} 
                     size="small" 
@@ -178,14 +198,16 @@ export default function MenuCafeteria() {
 
               <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
                 {/* Switch de disponibilidad rápida */}
-                <Box display="flex" alignItems="center">
-                  <Switch 
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Switch
                     checked={Boolean(prod.activo)} // Leemos activo
                     onChange={() => handleToggleDisponible(prod)}
                     color="success"
                     size="small"
                   />
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     {prod.activo ? 'En Carta' : 'Pausado'}
                   </Typography>
                 </Box>
@@ -211,12 +233,17 @@ export default function MenuCafeteria() {
       <Dialog open={openRecetaDialog} onClose={() => setOpenRecetaDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Receta: {productoSel?.nombre}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" mb={2}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mb: 2
+            }}>
             Indica los insumos que se descontarán del inventario por cada unidad vendida.
           </Typography>
 
           {/* Formulario para agregar insumo */}
-          <Box display="flex" gap={1} mb={3}>
+          <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
             <TextField
               select
               label="Insumo de Inventario"
@@ -273,8 +300,8 @@ export default function MenuCafeteria() {
           </Table>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenRecetaDialog(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleGuardarReceta} sx={{ backgroundColor: 'primary.main' }}>
+          <Button variant="contained" color="error" onClick={() => setOpenRecetaDialog(false)}>Cancelar</Button>
+          <Button variant="contained" color="success" onClick={handleGuardarReceta}>
             Guardar Receta
           </Button>
         </DialogActions>

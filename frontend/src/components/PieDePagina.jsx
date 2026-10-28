@@ -15,18 +15,26 @@ export default function PieDePagina() {
     return (
         <Box
             component="footer"
-            // `mt: auto` lo empuja al fondo de la columna que declara
-            // MainLayout cuando el contenido es corto. Al no usar posición
-            // fija, nunca tapa la última fila de una tabla.
+            // Barra inferior a todo el ancho del área de trabajo, en blanco y
+            // pegada al fondo (MainLayout la coloca como hermana del contenido,
+            // fuera del padding, por eso llega de borde a borde).
             sx={{
-                mt: 'auto',
-                pt: 3,
-                pb: 1,
+                width: '100%',
+                py: 2,
+                px: 2,
                 textAlign: 'center',
+                bgcolor: '#ffffff',
+                borderTop: '1px solid #e2e8f0',
             }}
         >
-            <Typography variant="caption" color="text.secondary">
-                Departamento de Soporte Técnico {anio}
+            <Typography
+                variant="subtitle1"
+                sx={{
+                    fontWeight: "bold",
+                    color: 'primary.main',
+                    letterSpacing: 0.3
+                }}>
+                © {anio} Desarrollado por el Departamento de Soporte Técnico
             </Typography>
         </Box>
     );

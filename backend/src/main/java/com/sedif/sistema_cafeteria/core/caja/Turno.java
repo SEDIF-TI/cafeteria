@@ -48,6 +48,22 @@ public class Turno {
     @Column(name = "n_diferencia", precision = 10, scale = 2)
     private BigDecimal diferencia;
 
+    /** Si hubo faltante, usuario del administrador que autorizó el cierre (null si cuadró). */
+    @Column(name = "s_autorizado_por", length = 100)
+    private String autorizadoPor;
+
+    /** Motivo capturado al autorizar un cierre con faltante. */
+    @Column(name = "s_motivo_diferencia", length = 300)
+    private String motivoDiferencia;
+
+    /** Administrador que corrigió el corte después de cerrado (null si no se corrigió). */
+    @Column(name = "s_corregido_por", length = 100)
+    private String corregidoPor;
+
+    /** Motivo de la corrección del corte. */
+    @Column(name = "s_motivo_correccion", length = 300)
+    private String motivoCorreccion;
+
     @Column(name = "b_activo", nullable = false)
     private Boolean estaActivo;
 

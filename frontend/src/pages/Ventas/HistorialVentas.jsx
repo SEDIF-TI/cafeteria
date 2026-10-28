@@ -8,6 +8,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import api from '../../api/axiosClient';
+import usePaginacion from '../../hooks/usePaginacion';
+import PaginacionTabla from '../../components/PaginacionTabla';
 
 const dinero = (v) => `$${Number(v || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 const fechaHora = (f) => (f ? new Date(f).toLocaleString('es-MX') : '—');
@@ -47,7 +49,9 @@ function FilaVenta({ venta }) {
         <TableCell colSpan={9} sx={{ py: 0, border: 0 }}>
           <Collapse in={abierto} unmountOnExit>
             <Box sx={{ m: 1, ml: 6 }}>
-              <Typography variant="caption" color="text.secondary">Detalle del ticket</Typography>
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>Detalle del ticket</Typography>
               <Table size="small">
                 <TableBody>
                   {(venta.detalles || []).map((d, i) => (
@@ -137,20 +141,31 @@ export default function HistorialVentas() {
   const totalPeriodo = filtradas.reduce((acc, v) => acc + Number(v.total || 0), 0);
   const totalPendiente = filtradas.reduce((acc, v) => acc + Number(v.saldoPendiente || 0), 0);
 
+  const pag = usePaginacion(filtradas);
+
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
         <ReceiptLongIcon color="primary" fontSize="large" />
-        <Typography variant="h4" fontWeight="bold">Historial de ventas</Typography>
+        <Typography variant="h4" sx={{
+          fontWeight: "bold"
+        }}>Historial de ventas</Typography>
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 4
+        }}>
         Todas las ventas registradas, con su detalle, estado y saldo pendiente.
       </Typography>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 3 }}>
         <TextField size="small" placeholder="Buscar cliente, área, ticket o método" value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)} sx={{ minWidth: 260 }}
-          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }} />
+          slotProps={{
+            input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }
+          }} />
         <TextField size="small" select label="Estado" value={estado} onChange={(e) => setEstado(e.target.value)} sx={{ minWidth: 150 }}>
           <MenuItem value="TODAS">Todas</MenuItem>
           <MenuItem value="PAGADAS">Pagadas</MenuItem>
@@ -162,13 +177,13 @@ export default function HistorialVentas() {
           value={hasta} onChange={(e) => setHasta(e.target.value)} />
       </Stack>
 
-      <Stack direction="row" spacing={2} mb={2} flexWrap="wrap">
+      <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: 'wrap' }}>
         <Chip label={`${filtradas.length} ventas`} />
         <Chip color="primary" variant="outlined" label={`Total: ${dinero(totalPeriodo)}`} />
         {totalPendiente > 0 && <Chip color="warning" variant="outlined" label={`Por cobrar: ${dinero(totalPendiente)}`} />}
       </Stack>
 
-      {loading && <Box display="flex" justifyContent="center" my={4}><CircularProgress /></Box>}
+      {loading && <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}><CircularProgress /></Box>}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {!loading && !error && (
@@ -188,12 +203,13 @@ export default function HistorialVentas() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtradas.map((v) => <FilaVenta key={v.id} venta={v} />)}
+              {pag.pagina.map((v) => <FilaVenta key={v.id} venta={v} />)}
               {filtradas.length === 0 && (
                 <TableRow><TableCell colSpan={9} align="center" sx={{ py: 3 }}>Sin ventas para los filtros seleccionados</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
+          {filtradas.length > 0 && <PaginacionTabla pag={pag} />}
         </TableContainer>
       )}
     </Container>

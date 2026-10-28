@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../api/axiosClient';
+import usePaginacion from '../../hooks/usePaginacion';
+import PaginacionTabla from '../../components/PaginacionTabla';
 import {
   Box, Typography, Paper, Button, Dialog, DialogTitle,
   DialogContent, DialogContentText, DialogActions, TextField,
@@ -77,6 +79,13 @@ export default function Categorias() {
     }
   };
 
+  // Categorías ordenadas alfabéticamente + paginación.
+  const categoriasOrdenadas = useMemo(
+    () => [...categorias].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' })),
+    [categorias]
+  );
+  const pag = usePaginacion(categoriasOrdenadas);
+
   if (loading) return <Typography sx={{ p: 3 }}>Cargando categorías...</Typography>;
 
   return (
@@ -91,7 +100,7 @@ export default function Categorias() {
           onClick={() => setOpenAddModal(true)}
           sx={{
             backgroundColor: 'primary.main',
-            '&:hover': { backgroundColor: '#501525' },
+            '&:hover': { backgroundColor: '#fc90b4' },
             textTransform: 'none',
             borderRadius: '8px',
             fontWeight: 600
@@ -102,13 +111,13 @@ export default function Categorias() {
       </Box>
 
       <Paper sx={{ p: 2, borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        {categorias.length === 0 ? (
+        {categoriasOrdenadas.length === 0 ? (
           <Typography sx={{ py: 3, textAlign: 'center', color: '#64748b' }}>
             No hay categorías registradas en la base de datos.
           </Typography>
         ) : (
           <List>
-            {categorias.map((cat) => (
+            {pag.pagina.map((cat) => (
               <ListItem key={cat.id} divider sx={{ py: 2 }}>
                 <ListItemText
                   primary={
@@ -125,7 +134,7 @@ export default function Categorias() {
                     </Box>
                   }
                   secondary={cat.descripcion || 'Sin descripción'}
-                  secondaryTypographyProps={{ sx: { color: '#64748b', mt: 0.5 } }}
+                  slotProps={{ secondary: { sx: { color: '#64748b', mt: 0.5 } } }}
                 />
                 <ListItemSecondaryAction>
                   <IconButton
@@ -142,6 +151,7 @@ export default function Categorias() {
             ))}
           </List>
         )}
+        {categoriasOrdenadas.length > 0 && <PaginacionTabla pag={pag} />}
       </Paper>
 
       {/* Modal para Crear Categoría */}
@@ -174,13 +184,14 @@ export default function Categorias() {
             />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 3 }}>
-            <Button onClick={() => setOpenAddModal(false)} sx={{ color: '#64748b', textTransform: 'none' }}>
+            <Button onClick={() => setOpenAddModal(false)} variant="contained" color="error" sx={{ textTransform: 'none' }}>
               Cancelar
             </Button>
             <Button
               type="submit"
               variant="contained"
-              sx={{ backgroundColor: 'primary.main', '&:hover': { backgroundColor: '#501525' }, textTransform: 'none' }}
+              color="success"
+              sx={{ textTransform: 'none' }}
             >
               Guardar
             </Button>
@@ -201,13 +212,13 @@ export default function Categorias() {
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={() => setOpenConfirmDialog(false)} sx={{ color: '#64748b', textTransform: 'none' }}>
+          <Button onClick={() => setOpenConfirmDialog(false)} variant="contained" color="error" sx={{ textTransform: 'none' }}>
             Cancelar
           </Button>
           <Button
             onClick={handleToggleEstado}
             variant="contained"
-            color={categoriaSeleccionada?.activo ? 'error' : 'success'}
+            color="success"
             sx={{ textTransform: 'none' }}
           >
             {categoriaSeleccionada?.activo ? 'Sí, desactivar' : 'Sí, activar'}

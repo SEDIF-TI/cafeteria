@@ -233,7 +233,12 @@ export default function Recetas() {
           Gestión de Recetas y Fichas Técnicas
         </Typography>
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 2
+        }}>
         Consulta la disponibilidad de producción basada en tu inventario o administra las fórmulas de preparado.
       </Typography>
 
@@ -385,7 +390,9 @@ export default function Recetas() {
               </Box>
             ) : detallesReceta.length === 0 ? (
               <Paper variant="outlined" sx={{ p: 3, textAlign: "center", backgroundColor: "#fafafa", mb: 3 }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   {productoSeleccionadoId
                     ? "Este producto no tiene insumos configurados aún. Haz clic en '+ Agregar Insumo'."
                     : "Selecciona un producto arriba para ver o crear su receta."}
@@ -456,19 +463,6 @@ export default function Recetas() {
                               size="small"
                               type="number"
                               disabled={!insumoObj}
-                              inputProps={{ 
-                                step: esPieza ? "1" : "any",
-                                min: "0" 
-                              }}
-                              InputProps={{
-                                endAdornment: sufijo ? (
-                                  <InputAdornment position="end">
-                                    <Typography variant="caption" sx={{ fontWeight: "bold", color: "#555" }}>
-                                      {sufijo}
-                                    </Typography>
-                                  </InputAdornment>
-                                ) : null
-                              }}
                               value={row.cantidad}
                               onChange={(e) => handleCantidadChange(index, e.target.value)}
                               onKeyDown={(e) => {
@@ -479,15 +473,31 @@ export default function Recetas() {
                               placeholder={esPieza ? "1" : "0"}
                               fullWidth
                               helperText={textoAyuda}
-                              FormHelperTextProps={{ 
-                                sx: { 
-                                  margin: 0, 
-                                  fontSize: "0.72rem", 
-                                  fontWeight: "500",
-                                  color: insumoObj ? PRIMARY_COLOR : "#888" 
-                                } 
-                              }}
-                            />
+                              slotProps={{
+                                input: {
+                                  endAdornment: sufijo ? (
+                                    <InputAdornment position="end">
+                                      <Typography variant="caption" sx={{ fontWeight: "bold", color: "#555" }}>
+                                        {sufijo}
+                                      </Typography>
+                                    </InputAdornment>
+                                  ) : null
+                                },
+
+                                htmlInput: { 
+                                  step: esPieza ? "1" : "any",
+                                  min: "0" 
+                                },
+
+                                formHelperText: { 
+                                  sx: { 
+                                    margin: 0, 
+                                    fontSize: "0.72rem", 
+                                    fontWeight: "500",
+                                    color: insumoObj ? PRIMARY_COLOR : "#888" 
+                                  } 
+                                }
+                              }} />
                           </TableCell>
                           <TableCell align="center">
                             <IconButton color="error" onClick={() => handleEliminarInsumo(index)}>

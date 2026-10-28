@@ -23,7 +23,16 @@ public class TurnoResource {
 
     @PostMapping("/cerrar")
     public ResponseEntity<TurnoResponse> cerrarTurno(@RequestBody @Valid CierreTurnoRequest request) {
-        return ResponseEntity.ok(turnoService.cerrarTurno(request.totalContado()));
+        return ResponseEntity.ok(turnoService.cerrarTurno(
+                request.totalContado(), request.autorizadorUsuario(), request.autorizadorPassword(), request.motivo()));
+    }
+
+    /** Corrige el arqueo de un corte ya cerrado (requiere autorización de administrador). */
+    @PatchMapping("/{id}/corregir")
+    public ResponseEntity<TurnoResponse> corregirCorte(
+            @PathVariable Long id, @RequestBody @Valid CierreTurnoRequest request) {
+        return ResponseEntity.ok(turnoService.corregirCorte(
+                id, request.totalContado(), request.autorizadorUsuario(), request.autorizadorPassword(), request.motivo()));
     }
 
     /** Turno abierto actual, o 204 si no hay ninguno. */

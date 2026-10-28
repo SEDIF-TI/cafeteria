@@ -64,7 +64,9 @@ export function FeedbackProvider({ children }) {
         <CircularProgress color="inherit" />
         {carga.mensaje && (
           <Box>
-            <Typography variant="h6" fontWeight="bold">{carga.mensaje}</Typography>
+            <Typography variant="h6" sx={{
+              fontWeight: "bold"
+            }}>{carga.mensaje}</Typography>
           </Box>
         )}
       </Backdrop>

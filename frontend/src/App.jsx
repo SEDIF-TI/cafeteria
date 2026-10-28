@@ -15,6 +15,7 @@ import Utensilios from "./pages/Utensilios/Utensilios";
 import Deudores from "./pages/Deudas/Deudores";
 import MenuCafeteria from "./pages/Menu/MenuCafeteria";
 import Recetas from "./pages/Receta/Recetas";
+import PantallaMenu from "./pages/Pantalla/PantallaMenu";
 
 // Módulos públicos de Cliente
 import MiApartado from "./pages/cliente/MiApartado";
@@ -43,6 +44,9 @@ export default function App() {
           <Route path="/cliente/tickets" element={<MiApartado />} />
           <Route path="/registro-cliente" element={<RegistroClientePublico />} />
           <Route path="/registro-cliente/qr" element={<ModalQRCliente open onClose={() => window.history.back()} />} />
+
+          {/* Pantalla del menú para proyectar en TV por HDMI (standalone, sin barra lateral) */}
+          <Route path="/pantalla-menu" element={<PantallaMenu />} />
 
           {/* Panel Principal Dashboard (Protegido) */}
           <Route path="/dashboard" element={<MainLayout />}>

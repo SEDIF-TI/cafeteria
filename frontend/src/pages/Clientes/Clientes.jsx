@@ -8,8 +8,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import KeyIcon from '@mui/icons-material/Key';
 import PeopleIcon from '@mui/icons-material/People';
 import api from '../../api/axiosClient';
-
-const dinero = (v) => `$${Number(v || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+import usePaginacion from '../../hooks/usePaginacion';
+import PaginacionTabla from '../../components/PaginacionTabla';
 
 export default function Clientes() {
   const [clientes, setClientes] = useState([]);
@@ -18,7 +18,7 @@ export default function Clientes() {
   const [busqueda, setBusqueda] = useState('');
   const [objetivo, setObjetivo] = useState(null); // cliente a resetear
   const [reseteando, setReseteando] = useState(false);
-  const [aviso, setAviso] = useState('');
+  const [aviso, setAviso] = useState(null); // { texto, tipo: 'success' | 'error' }
 
   const cargar = async () => {
     try {
@@ -39,10 +39,10 @@ export default function Clientes() {
     setReseteando(true);
     try {
       await api.patch(`/clientes/${objetivo.id}/reset-password`);
-      setAviso(`Contraseña de ${objetivo.nombre} restablecida a: ${objetivo.numeroControl}CAFE`);
+      setAviso({ texto: `Contraseña de ${objetivo.nombre} restablecida a: ${objetivo.numeroControl}CAFE`, tipo: 'success' });
       setObjetivo(null);
     } catch (err) {
-      setAviso(err.response?.data?.message || 'No se pudo restablecer la contraseña.');
+      setAviso({ texto: err.response?.data?.message || 'No se pudo restablecer la contraseña.', tipo: 'error' });
     } finally {
       setReseteando(false);
     }
@@ -50,26 +50,39 @@ export default function Clientes() {
 
   const filtrados = useMemo(() => {
     const t = busqueda.toLowerCase().trim();
-    return clientes.filter((c) =>
-      !t || [c.nombre, c.numeroControl, c.area].some((v) => (v || '').toLowerCase().includes(t))
-    );
+    return clientes
+      .filter((c) =>
+        !t || [c.nombre, c.numeroControl, c.area].some((v) => (v || '').toLowerCase().includes(t))
+      )
+      .sort((a, b) => (b.id || 0) - (a.id || 0)); // más recientes primero
   }, [clientes, busqueda]);
+
+  const pag = usePaginacion(filtrados);
 
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
         <PeopleIcon color="primary" fontSize="large" />
-        <Typography variant="h4" fontWeight="bold">Clientes</Typography>
+        <Typography variant="h4" sx={{
+          fontWeight: "bold"
+        }}>Clientes</Typography>
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 4
+        }}>
         Empleados registrados. Puedes restablecer su contraseña del portal a la temporal (código + CAFE).
       </Typography>
 
       <TextField size="small" placeholder="Buscar nombre, código o área" value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)} sx={{ minWidth: 280, mb: 2 }}
-        InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }} />
+        slotProps={{
+          input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }
+        }} />
 
-      {loading && <Box display="flex" justifyContent="center" my={4}><CircularProgress /></Box>}
+      {loading && <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}><CircularProgress /></Box>}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {!loading && !error && (
@@ -78,24 +91,18 @@ export default function Clientes() {
             <TableHead>
               <TableRow>
                 <TableCell><b>Nombre</b></TableCell>
-                <TableCell><b>Código</b></TableCell>
+                <TableCell><b>No. Control</b></TableCell>
                 <TableCell><b>Área</b></TableCell>
-                <TableCell align="right"><b>Saldo</b></TableCell>
                 <TableCell align="center"><b>Estado</b></TableCell>
                 <TableCell align="center"><b>Contraseña</b></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtrados.map((c) => (
+              {pag.pagina.map((c) => (
                 <TableRow key={c.id} hover>
                   <TableCell sx={{ fontWeight: 'bold' }}>{c.nombre}</TableCell>
                   <TableCell>{c.numeroControl || '—'}</TableCell>
                   <TableCell>{c.area || '—'}</TableCell>
-                  <TableCell align="right">
-                    {Number(c.saldoDeudor) > 0
-                      ? <Typography variant="body2" color="error">{dinero(c.saldoDeudor)}</Typography>
-                      : dinero(0)}
-                  </TableCell>
                   <TableCell align="center">
                     <Chip size="small" label={c.activo ? 'Activo' : 'Inactivo'} color={c.activo ? 'success' : 'default'} />
                   </TableCell>
@@ -107,10 +114,11 @@ export default function Clientes() {
                 </TableRow>
               ))}
               {filtrados.length === 0 && (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 3 }}>Sin clientes</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} align="center" sx={{ py: 3 }}>Sin clientes</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
+          {filtrados.length > 0 && <PaginacionTabla pag={pag} />}
         </TableContainer>
       )}
 
@@ -123,15 +131,21 @@ export default function Clientes() {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setObjetivo(null)} disabled={reseteando}>Cancelar</Button>
-          <Button variant="contained" color="warning" onClick={confirmarReset} disabled={reseteando}>
-            {reseteando ? 'Restableciendo…' : 'Restablecer'}
+          <Button variant="contained" color="error" onClick={() => setObjetivo(null)} disabled={reseteando}>
+            Cancelar
+          </Button>
+          <Button variant="contained" color="success" onClick={confirmarReset} disabled={reseteando}>
+            {reseteando ? 'Restableciendo…' : 'Confirmar'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={!!aviso} autoHideDuration={6000} onClose={() => setAviso('')}
-        message={aviso} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} />
+      <Snackbar open={!!aviso} autoHideDuration={4000} onClose={() => setAviso(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity={aviso?.tipo || 'success'} variant="filled" onClose={() => setAviso(null)} sx={{ width: '100%' }}>
+          {aviso?.texto}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }

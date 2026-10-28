@@ -39,6 +39,21 @@ export const AuthProvider = ({ children }) => {
         return userData;
     };
 
+    // Establece la sesión de personal a partir de datos ya obtenidos (acceso unificado),
+    // sin hacer otra petición.
+    const establecerSesionPersonal = (userData) => {
+        const token = userData.token || userData.jwt || userData.accessToken;
+        if (!token) {
+            throw new Error("No se recibió el token de autenticación.");
+        }
+        userData.vistasPermitidas = userData.vistas || [];
+        userData.passwordTemporal = userData.passwordTemporal || false;
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('token', token);
+        setUser(userData);
+        return userData;
+    };
+
     const logout = () => {
         localStorage.removeItem('user');
         localStorage.removeItem('token');
@@ -46,7 +61,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout }}>
+        <AuthContext.Provider value={{ user, login, establecerSesionPersonal, logout }}>
             {children}
         </AuthContext.Provider>
     );

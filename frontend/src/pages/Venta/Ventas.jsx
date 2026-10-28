@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Grid, Paper, Typography, Box, Card, CardContent, CardActionArea,
   Button, IconButton, TextField, MenuItem, Chip, Alert, Stack, Divider, Autocomplete,
-  FormControlLabel, Switch, Collapse
+  FormControlLabel, Switch, Collapse, Checkbox
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -29,35 +29,38 @@ export default function Ventas() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [openQRModal, setOpenQRModal] = useState(false);
 
-  // Salida de cubiertos fuera de la cafetería
-  const [utensilios, setUtensilios] = useState([]);
+  // Salida de cubiertos fuera de la cafetería (kit estándar)
   const [llevaCubiertos, setLlevaCubiertos] = useState(false);
   const [codigoEmpleado, setCodigoEmpleado] = useState('');
   const [areaDestino, setAreaDestino] = useState('');
-  const [cantidadesCubiertos, setCantidadesCubiertos] = useState({});
+  const [nombreRefCubiertos, setNombreRefCubiertos] = useState('');
+  const [juegosCubiertos, setJuegosCubiertos] = useState(1);
+  const [incluyeCharola, setIncluyeCharola] = useState(false);
 
   const resetCubiertos = () => {
     setLlevaCubiertos(false);
     setCodigoEmpleado('');
     setAreaDestino('');
-    setCantidadesCubiertos({});
+    setNombreRefCubiertos('');
+    setJuegosCubiertos(1);
+    setIncluyeCharola(false);
   };
 
   const [hayTurno, setHayTurno] = useState(true);
 
   const cargarCatalogos = async () => {
     try {
-      const [resProd, resClientes, resUtensilios, resTurno] = await Promise.all([
+      const [resProd, resClientes, resTurno] = await Promise.all([
         api.get('/productos'),
         api.get('/clientes'),
-        api.get('/utensilios/activos').catch(() => ({ data: [] })),
         api.get('/turnos/activo').catch(() => ({ data: null }))
       ]);
 
-      const productosVenta = (resProd.data || []).filter((p) => Number(p.precio) > 0);
+      // Solo productos vendibles (precio > 0) y ACTIVOS: al desactivar en el Menú,
+      // el producto deja de aparecer en el Punto de Venta ese día.
+      const productosVenta = (resProd.data || []).filter((p) => Number(p.precio) > 0 && p.activo !== false);
       setProductos(productosVenta);
       setClientes(resClientes.data || []);
-      setUtensilios(resUtensilios.data || []);
       setHayTurno(!!resTurno.data);
     } catch (error) {
       console.error('Error al cargar catálogos:', error);
@@ -141,20 +144,8 @@ export default function Ventas() {
       return;
     }
 
-    const utensiliosSalida = Object.entries(cantidadesCubiertos)
-      .filter(([, cant]) => Number(cant) > 0)
-      .map(([utensilioId, cant]) => ({ utensilioId: Number(utensilioId), cantidad: Number(cant) }));
-
-    if (llevaCubiertos) {
-      if (!codigoEmpleado.trim() || !areaDestino.trim()) {
-        notificar('Para llevarse cubiertos indica el código de empleado y el área destino.', 'warning');
-        return;
-      }
-      if (utensiliosSalida.length === 0) {
-        notificar('Indica al menos un cubierto y su cantidad.', 'warning');
-        return;
-      }
-    }
+    // Público general sin área: no se bloquea; el backend lo registra como "Sin área".
+    const juegosNum = Math.max(1, parseInt(juegosCubiertos, 10) || 1);
 
     setLoading(true);
     cargar('Registrando la venta...');
@@ -187,7 +178,13 @@ export default function Ventas() {
       })),
       llevaCubiertos,
       cubiertos: llevaCubiertos
-        ? { codigoEmpleado: codigoEmpleado.trim(), area: areaDestino.trim(), utensilios: utensiliosSalida }
+        ? {
+            codigoEmpleado: codigoEmpleado.trim() || null,
+            nombre: nombreRefCubiertos.trim() || null,
+            area: areaDestino.trim() || null,
+            juegos: juegosNum,
+            incluyeCharola
+          }
         : null
     };
 
@@ -235,11 +232,18 @@ export default function Ventas() {
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
               <PointOfSaleIcon color="primary" fontSize="large" />
-              <Typography variant="h4" fontWeight="900" color="text.primary">
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: "900",
+                  color: "text.primary"
+                }}>
                 Punto de Venta
               </Typography>
             </Box>
-            <Typography variant="subtitle1" color="text.secondary">
+            <Typography variant="subtitle1" sx={{
+              color: "text.secondary"
+            }}>
               Selecciona los productos para agregarlos al ticket de venta.
             </Typography>
           </Box>
@@ -269,7 +273,7 @@ export default function Ventas() {
             const agotado = stock <= 0;
 
             return (
-              <Grid item xs={12} sm={6} md={6} lg={4} xl={3} key={prod.id}>
+              <Grid size={{ xs: 12, sm: 6, md: 6, lg: 4, xl: 3 }} key={prod.id}>
                 <Card
                   elevation={0}
                   sx={{
@@ -295,17 +299,29 @@ export default function Ventas() {
                     sx={{ height: '100%', p: 2.5 }}
                   >
                     <CardContent sx={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
-                      <Box mb={2}>
+                      <Box sx={{
+                        mb: 2
+                      }}>
                         <Typography
                           variant="h6"
-                          fontWeight="bold"
-                          sx={{ lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                        >
+                          sx={{
+                            fontWeight: "bold",
+                            lineHeight: 1.3,
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}>
                           {prod.nombre}
                         </Typography>
                       </Box>
-                      <Box display="flex" justifyContent="space-between" alignItems="flex-end">
-                        <Typography variant="h5" fontWeight="900" color="#691c32">
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                        <Typography
+                          variant="h5"
+                          sx={{
+                            fontWeight: "900",
+                            color: "#fc6c9c"
+                          }}>
                           ${Number(prod.precio).toFixed(2)}
                         </Typography>
                         <Chip
@@ -346,13 +362,17 @@ export default function Ventas() {
           <Stack
             direction="row"
             spacing={2}
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{ p: 3, bgcolor: '#ffffff', borderBottom: '1px solid #e9ecef' }}
+            sx={{ alignItems: 'center', justifyContent: 'space-between', p: 3, bgcolor: '#ffffff', borderBottom: '1px solid #e9ecef' }}
           >
-            <Stack direction="row" spacing={1.5} alignItems="center">
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
               <ShoppingCartIcon sx={{ color: 'primary.main', fontSize: 32 }} />
-              <Typography variant="h5" fontWeight="800" color="text.primary" sx={{ m: 0 }}>
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: "800",
+                  color: "text.primary",
+                  m: 0
+                }}>
                 Ticket de Venta
               </Typography>
             </Stack>
@@ -394,30 +414,31 @@ export default function Ventas() {
                 setCodigoEmpleado(newValue?.numeroControl || '');
                 setAreaDestino(newValue?.area || '');
               }}
-              renderInput={(params) => {
-                // En esta version de MUI params.InputProps puede venir undefined:
-                // lo normalizamos para no reventar al leer startAdornment.
-                const inputProps = params.InputProps || {};
-                return (
-                  <TextField
-                    {...params}
-                    label="Cliente (Nombre o N° de Control)"
-                    placeholder="En blanco = Público General"
-                    fullWidth
-                    size="small"
-                    InputProps={{
-                      ...inputProps,
+              renderInput={(params) => (
+                // MUI v9 entrega todo en params.slotProps (input lleva la ref y los iconos
+                // de limpiar/desplegar; htmlInput lleva la ref del <input>). Se MEZCLA con
+                // lo nuestro: si se reemplaza, Autocomplete pierde la ref y truena al enfocar.
+                <TextField
+                  {...params}
+                  label="Cliente (Nombre o N° de Control)"
+                  placeholder="En blanco = Público General"
+                  fullWidth
+                  size="small"
+                  slotProps={{
+                    ...params.slotProps,
+                    input: {
+                      ...params.slotProps.input,
                       startAdornment: (
                         <>
                           <PersonIcon sx={{ color: 'text.disabled', ml: 0.5, mr: 0.5 }} fontSize="small" />
-                          {inputProps.startAdornment}
+                          {params.slotProps.input.startAdornment}
                         </>
                       ),
                       sx: { borderRadius: 2 }
-                    }}
-                  />
-                );
-              }}
+                    }
+                  }}
+                />
+              )}
               noOptionsText="No se encontraron clientes"
             />
           </Box>
@@ -437,24 +458,61 @@ export default function Ventas() {
               }}
             >
               <RemoveShoppingCartIcon sx={{ fontSize: 80, color: '#dee2e6', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary" align="center" fontWeight="500">
+              <Typography
+                variant="h6"
+                align="center"
+                sx={{
+                  color: "text.secondary",
+                  fontWeight: "500"
+                }}>
                 El ticket está vacío.
               </Typography>
-              <Typography variant="body1" color="text.secondary" align="center" mt={1}>
+              <Typography
+                variant="body1"
+                align="center"
+                sx={{
+                  color: "text.secondary",
+                  mt: 1
+                }}>
                 Selecciona productos del catálogo para comenzar.
               </Typography>
             </Box>
           ) : (
-            <Box display="flex" flexDirection="column">
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
               {/* Lista de productos */}
               <Stack
                 direction="row"
-                alignItems="center"
-                sx={{ px: 3, py: 1.5, bgcolor: '#f8f9fa', borderTop: '1px solid #e9ecef', borderBottom: '1px solid #e9ecef' }}
-              >
-                <Typography variant="subtitle2" fontWeight="700" color="text.secondary" sx={{ flex: 1 }}>PRODUCTO</Typography>
-                <Typography variant="subtitle2" fontWeight="700" color="text.secondary" sx={{ width: '110px', textAlign: 'center' }}>CANT.</Typography>
-                <Typography variant="subtitle2" fontWeight="700" color="text.secondary" sx={{ width: '80px', textAlign: 'right' }}>SUBT.</Typography>
+                sx={{
+                  alignItems: "center",
+                  px: 3,
+                  py: 1.5,
+                  bgcolor: '#f8f9fa',
+                  borderTop: '1px solid #e9ecef',
+                  borderBottom: '1px solid #e9ecef'
+                }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: "700",
+                    color: "text.secondary",
+                    flex: 1
+                  }}>PRODUCTO</Typography>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: "700",
+                    color: "text.secondary",
+                    width: '110px',
+                    textAlign: 'center'
+                  }}>CANT.</Typography>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: "700",
+                    color: "text.secondary",
+                    width: '80px',
+                    textAlign: 'right'
+                  }}>SUBT.</Typography>
                 <Box sx={{ width: '36px' }}></Box>
               </Stack>
 
@@ -463,23 +521,32 @@ export default function Ventas() {
                   <Stack
                     key={item.productoId}
                     direction="row"
-                    alignItems="center"
                     sx={{
-                      px: 3, py: 2,
+                      alignItems: "center",
+                      px: 3,
+                      py: 2,
                       borderBottom: '1px solid #f1f3f5',
                       '&:hover': { bgcolor: '#fdfdfd' }
-                    }}
-                  >
+                    }}>
                     <Box sx={{ flex: 1, minWidth: 0, pr: 1.5 }}>
                       <Typography
                         variant="subtitle1"
-                        fontWeight="700"
-                        color="text.primary"
-                        sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                      >
+                        sx={{
+                          fontWeight: "700",
+                          color: "text.primary",
+                          display: 'block',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
                         {item.nombre}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary" fontWeight="500">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "text.secondary",
+                          fontWeight: "500"
+                        }}>
                         ${item.precio.toFixed(2)} c/u
                       </Typography>
                     </Box>
@@ -487,16 +554,26 @@ export default function Ventas() {
                     <Box sx={{ width: '110px', display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
                       <Stack
                         direction="row"
-                        alignItems="center"
-                        sx={{ border: '1px solid #dee2e6', borderRadius: 2, overflow: 'hidden', bgcolor: '#ffffff' }}
-                      >
+                        sx={{
+                          alignItems: "center",
+                          border: '1px solid #dee2e6',
+                          borderRadius: 2,
+                          overflow: 'hidden',
+                          bgcolor: '#ffffff'
+                        }}>
                         <IconButton
                           onClick={() => cambiarCantidad(item.productoId, -1)}
                           sx={{ color: 'text.secondary', p: 0.75, borderRadius: 0, bgcolor: '#f8f9fa', '&:hover': { bgcolor: '#e9ecef' } }}
                         >
                           <RemoveIcon fontSize="small" />
                         </IconButton>
-                        <Typography variant="subtitle1" fontWeight="bold" sx={{ width: '32px', textAlign: 'center' }}>
+                        <Typography
+                          variant="subtitle1"
+                          sx={{
+                            fontWeight: "bold",
+                            width: '32px',
+                            textAlign: 'center'
+                          }}>
                           {item.cantidad}
                         </Typography>
                         <IconButton
@@ -509,7 +586,12 @@ export default function Ventas() {
                     </Box>
 
                     <Box sx={{ width: '80px', textAlign: 'right', flexShrink: 0 }}>
-                      <Typography variant="subtitle1" fontWeight="900" color="text.primary">
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: "900",
+                          color: "text.primary"
+                        }}>
                         ${(item.precio * item.cantidad).toFixed(2)}
                       </Typography>
                     </Box>
@@ -533,10 +615,11 @@ export default function Ventas() {
                   value={metodoPago}
                   onChange={(e) => setMetodoPago(e.target.value)}
                   sx={{ mb: 2 }}
-                  InputProps={{ sx: { borderRadius: 2 } }}
+                  slotProps={{
+                    input: { sx: { borderRadius: 2 } }
+                  }}
                 >
                   <MenuItem value="EFECTIVO">Efectivo</MenuItem>
-                  <MenuItem value="TARJETA">Tarjeta de Débito / Crédito</MenuItem>
                   <MenuItem value="TRANSFERENCIA">Transferencia</MenuItem>
                   <MenuItem value="DEUDA">Crédito / Fiado (Deuda)</MenuItem>
                 </TextField>
@@ -554,12 +637,24 @@ export default function Ventas() {
                           setMontoRecibido(val);
                         }
                       }}
-                      inputProps={{ min: 0, step: 'any' }}
-                      InputProps={{ sx: { fontSize: '1.15rem', fontWeight: 'bold', borderRadius: 2 } }}
-                    />
+                      slotProps={{
+                        input: { sx: { fontSize: '1.15rem', fontWeight: 'bold', borderRadius: 2 } },
+                        htmlInput: { min: 0, step: 'any' }
+                      }} />
                     {parseFloat(montoRecibido) >= totalVenta && totalVenta > 0 && (
-                      <Alert severity="success" sx={{ mt: 1.5, fontWeight: 'bold', borderRadius: 2, py: 0.5 }}>
-                        Cambio a entregar: ${cambio.toFixed(2)}
+                      <Alert
+                        severity="success"
+                        icon={false}
+                        sx={{ mt: 1.5, borderRadius: 2, py: 1.5, '& .MuiAlert-message': { width: '100%' } }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+                          <Typography sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                            Cambio a entregar
+                          </Typography>
+                          <Typography sx={{ fontWeight: 'bold', fontSize: '2.2rem', lineHeight: 1 }}>
+                            ${cambio.toFixed(2)}
+                          </Typography>
+                        </Box>
                       </Alert>
                     )}
                   </Box>
@@ -588,47 +683,66 @@ export default function Ventas() {
                       color="warning"
                     />
                   }
-                  label={<Typography fontWeight="bold" variant="body2">¿Se lleva cubiertos fuera de la cafetería?</Typography>}
+                  label={<Typography variant="body2" sx={{
+                    fontWeight: "bold"
+                  }}>¿Se lleva cubiertos fuera de la cafetería?</Typography>}
                 />
 
                 <Collapse in={llevaCubiertos} timeout="auto" unmountOnExit>
                   <Stack spacing={1.5} sx={{ mb: 2 }}>
-                    <TextField
-                      label="Código de empleado"
-                      value={codigoEmpleado}
-                      onChange={(e) => setCodigoEmpleado(e.target.value)}
-                      fullWidth
-                      size="small"
-                      required
-                    />
-                    <TextField
-                      label="Área / ubicación destino (ej. Piso 2 - Jurídico)"
-                      value={areaDestino}
-                      onChange={(e) => setAreaDestino(e.target.value)}
-                      fullWidth
-                      size="small"
-                      required
-                    />
-                    {utensilios.length === 0 ? (
-                      <Alert severity="warning" sx={{ py: 0.5 }}>No hay utensilios registrados. Dalos de alta en el módulo Utensilios.</Alert>
+                    <Alert severity="info" icon={false} sx={{ py: 0.5 }}>
+                      Se registra el <b>kit estándar</b>: plato, vaso, cuchara, cuchillo y tenedor.
+                    </Alert>
+
+                    {clienteSeleccionado ? (
+                      <TextField
+                        label="Área"
+                        value={areaDestino}
+                        onChange={(e) => setAreaDestino(e.target.value)}
+                        fullWidth
+                        size="small"
+                        helperText="Tomada del cliente; puedes ajustarla."
+                      />
                     ) : (
-                      utensilios.map((u) => (
+                      <>
                         <TextField
-                          key={u.id}
-                          label={`${u.nombre} (disp.: ${u.stockDisponible})`}
-                          type="number"
+                          label="Área destino (ej. Piso 2 - Jurídico)"
+                          value={areaDestino}
+                          onChange={(e) => setAreaDestino(e.target.value)}
+                          fullWidth
                           size="small"
-                          value={cantidadesCubiertos[u.id] ?? ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === '' || (Number(val) >= 0 && Number(val) <= u.stockDisponible)) {
-                              setCantidadesCubiertos((prev) => ({ ...prev, [u.id]: val }));
-                            }
-                          }}
-                          inputProps={{ min: 0, max: u.stockDisponible }}
+                          helperText="Público general: si la dejas vacía, se registra como 'Sin área'."
                         />
-                      ))
+                        <TextField
+                          label="Nombre / referencia (opcional)"
+                          value={nombreRefCubiertos}
+                          onChange={(e) => setNombreRefCubiertos(e.target.value)}
+                          fullWidth
+                          size="small"
+                        />
+                      </>
                     )}
+
+                    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                      <TextField
+                        label="¿Cuántos juegos?"
+                        type="number"
+                        size="small"
+                        value={juegosCubiertos}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === '' || Number(v) >= 1) setJuegosCubiertos(v);
+                        }}
+                        sx={{ width: 150 }}
+                        slotProps={{
+                          htmlInput: { min: 1, step: 1 }
+                        }}
+                      />
+                      <FormControlLabel
+                        control={<Checkbox checked={incluyeCharola} onChange={(e) => setIncluyeCharola(e.target.checked)} />}
+                        label="Incluye charola"
+                      />
+                    </Stack>
                   </Stack>
                 </Collapse>
 
@@ -640,11 +754,21 @@ export default function Ventas() {
 
                 <Divider sx={{ my: 2 }} />
 
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2, p: 2, bgcolor: '#f8f9fa', borderRadius: 3 }}>
-                  <Typography variant="h6" fontWeight="700" color="text.secondary">
+                <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2, p: 2, bgcolor: '#f8f9fa', borderRadius: 3 }}>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontWeight: "700",
+                      color: "text.secondary"
+                    }}>
                     TOTAL A PAGAR
                   </Typography>
-                  <Typography variant="h4" fontWeight="900" color="#691c32">
+                  <Typography
+                    variant="h4"
+                    sx={{
+                      fontWeight: "900",
+                      color: "#fc6c9c"
+                    }}>
                     ${totalVenta.toFixed(2)}
                   </Typography>
                 </Stack>

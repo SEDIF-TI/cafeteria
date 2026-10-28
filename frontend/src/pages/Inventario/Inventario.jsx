@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Container, Typography, Box, Button, Table, TableBody, TableCell,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -11,6 +11,8 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import BuildIcon from '@mui/icons-material/Build';
 import api from '../../api/axiosClient';
 import { useFeedback } from '../../components/FeedbackProvider';
+import usePaginacion from '../../hooks/usePaginacion';
+import PaginacionTabla from '../../components/PaginacionTabla';
 
 // Devuelve el tipo de un producto ('DIRECTO' | 'PREPARADO' | 'MATERIA_PRIMA').
 // Usa tipoProducto (nuevo); si faltara (dato viejo), lo deduce del esDirecto/inventario.
@@ -407,6 +409,13 @@ export default function Inventario() {
     setEditId(null);
   };
 
+  // Productos ordenados alfabéticamente (sin importar su tipo/estado) + paginación.
+  const inventarioOrdenado = useMemo(
+    () => [...inventario].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' })),
+    [inventario]
+  );
+  const pag = usePaginacion(inventarioOrdenado);
+
   const esPreparadoForm = formData.tipoProducto === 'PREPARADO';
   const esMateriaPrimaForm = formData.tipoProducto === 'MATERIA_PRIMA';
   const permiteDecimales = esMateriaPrimaForm && formData.unidadVisual !== 'Piezas';
@@ -415,13 +424,20 @@ export default function Inventario() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5" fontWeight="bold">Control de Inventario y Productos</Typography>
+      <Typography
+        variant="h5"
+        sx={{
+          fontWeight: "bold",
+          mb: 4
+        }}>
+        Control de Inventario y Productos
+      </Typography>
+      <Box sx={{ mt: 2, mb: 5 }}>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={handleOpenCreate}
-          sx={{ backgroundColor: 'primary.main' }}
+          sx={{ backgroundColor: 'primary.main', py: 1, px: 3, fontWeight: 'bold' }}
         >
           Nuevo Producto
         </Button>
@@ -439,11 +455,11 @@ export default function Inventario() {
               <TableCell><b>Tipo</b></TableCell>
               <TableCell align="center"><b>Stock Disponible</b></TableCell>
               <TableCell align="center"><b>Stock Mínimo</b></TableCell>
-              <TableCell align="center"><b>Acciones</b></TableCell>
+              <TableCell align="center" sx={{ minWidth: 150, whiteSpace: 'nowrap' }}><b>Acciones</b></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {inventario.map((item) => {
+            {pag.pagina.map((item) => {
               const inv = item.inventario || item;
               const stockActualVal = inv.stockActual ?? item.stockActual ?? 0;
               const stockMinimoVal = inv.stockMinimo ?? item.stockMinimo ?? 0;
@@ -483,33 +499,35 @@ export default function Inventario() {
                     {esPreparado ? '— (según receta)' : formatearUnidad(stockMinimoVal, item)}
                   </TableCell>
 
-                  <TableCell align="center">
-                    {!esPreparado && (
-                      <>
-                        <Tooltip title="Reabastecer / Sumar Stock">
-                          <IconButton onClick={() => handleOpenSumarStock(item)} sx={{ color: '#2e7d32' }}>
-                            <Inventory2Icon />
-                          </IconButton>
-                        </Tooltip>
+                  <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 0.5 }}>
+                      {!esPreparado && (
+                        <>
+                          <Tooltip title="Reabastecer / Sumar Stock">
+                            <IconButton size="small" onClick={() => handleOpenSumarStock(item)} sx={{ color: '#2e7d32' }}>
+                              <Inventory2Icon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
 
-                        <Tooltip title="Ajustar / Forzar Stock Exacto">
-                          <IconButton onClick={() => handleOpenAjuste(item)} sx={{ color: '#ed6c02' }}>
-                            <BuildIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </>
-                    )}
+                          <Tooltip title="Ajustar / Forzar Stock Exacto">
+                            <IconButton size="small" onClick={() => handleOpenAjuste(item)} sx={{ color: '#ed6c02' }}>
+                              <BuildIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
 
-                    <Tooltip title="Editar Producto">
-                      <IconButton onClick={() => handleEdit(item)} sx={{ color: 'primary.main' }}>
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
+                      <Tooltip title="Editar Producto">
+                        <IconButton size="small" onClick={() => handleEdit(item)} sx={{ color: 'primary.main' }}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </TableCell>
                 </TableRow>
               );
             })}
-            {inventario.length === 0 && (
+            {inventarioOrdenado.length === 0 && (
               <TableRow>
                 <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
                   No hay productos o insumos registrados.
@@ -518,14 +536,15 @@ export default function Inventario() {
             )}
           </TableBody>
         </Table>
+        {inventarioOrdenado.length > 0 && <PaginacionTabla pag={pag} />}
       </Paper>
 
       {/* Modal 1: Crear / Editar */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>{editId ? 'Editar Registro' : 'Nuevo Registro'}</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} sm={6}>
+          <Grid container columnSpacing={2.5} rowSpacing={3} sx={{ mt: 1 }}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 label="Nombre del Producto/Insumo"
                 fullWidth
@@ -533,7 +552,7 @@ export default function Inventario() {
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 select
                 label="Tipo de Registro"
@@ -546,7 +565,7 @@ export default function Inventario() {
                 <MenuItem value="MATERIA_PRIMA">Materia Prima / Insumo (Ej. Leche, Café)</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 label="Descripción"
                 fullWidth
@@ -554,7 +573,7 @@ export default function Inventario() {
                 onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 select
                 label="Categoría"
@@ -568,60 +587,68 @@ export default function Inventario() {
                 ))}
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 label="Costo ($)"
                 type="number"
                 fullWidth
                 onKeyDown={(e) => handleKeyDownNumerico(e, true)}
-                inputProps={{ min: 0, step: "0.01" }}
                 helperText={esMateriaPrimaForm ? "Costo por Kilo / Litro / Pieza de insumo" : "Costo de compra / preparación"}
                 value={formData.costo}
                 onChange={(e) => setFormData({ ...formData, costo: e.target.value })}
+                slotProps={{
+                  htmlInput: { min: 0, step: "0.01" }
+                }}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 label="Precio de Venta ($)"
                 type="number"
                 fullWidth
                 onKeyDown={(e) => handleKeyDownNumerico(e, true)}
-                inputProps={{ min: 0, step: "0.01" }}
                 disabled={esMateriaPrimaForm}
                 helperText={esMateriaPrimaForm ? "La materia prima no se vende directamente" : ""}
                 value={formData.precio}
                 onChange={(e) => setFormData({ ...formData, precio: e.target.value })}
+                slotProps={{
+                  htmlInput: { min: 0, step: "0.01" }
+                }}
               />
             </Grid>
 
             {/* Stock: solo para Directo y Materia Prima (el Preparado se calcula de la receta) */}
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 label="Stock Inicial"
                 type="number"
                 fullWidth
                 disabled={esPreparadoForm}
                 onKeyDown={(e) => handleKeyDownNumerico(e, permiteDecimales)}
-                inputProps={{ min: 0, step: permiteDecimales ? "any" : "1" }}
                 helperText={esPreparadoForm ? "El stock se calcula de la receta" : (!permiteDecimales ? "Solo números enteros" : "Soporta decimales")}
                 value={esPreparadoForm ? '' : formData.cantidad}
                 onChange={(e) => setFormData({ ...formData, cantidad: e.target.value })}
+                slotProps={{
+                  htmlInput: { min: 0, step: permiteDecimales ? "any" : "1" }
+                }}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 label="Stock Mínimo"
                 type="number"
                 fullWidth
                 disabled={esPreparadoForm}
                 onKeyDown={(e) => handleKeyDownNumerico(e, permiteDecimales)}
-                inputProps={{ min: 0, step: permiteDecimales ? "any" : "1" }}
                 helperText={esPreparadoForm ? "No aplica" : (!permiteDecimales ? "Solo números enteros" : "Soporta decimales")}
                 value={esPreparadoForm ? '' : formData.stockMinimo}
                 onChange={(e) => setFormData({ ...formData, stockMinimo: e.target.value })}
+                slotProps={{
+                  htmlInput: { min: 0, step: permiteDecimales ? "any" : "1" }
+                }}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 select
                 label="Unidad de Medida"
@@ -639,8 +666,8 @@ export default function Inventario() {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseDialog}>Cancelar</Button>
-          <Button variant="contained" onClick={handleGuardar} sx={{ backgroundColor: 'primary.main' }}>
+          <Button variant="contained" color="error" onClick={handleCloseDialog}>Cancelar</Button>
+          <Button variant="contained" color="success" onClick={handleGuardar}>
             {editId ? 'Guardar Cambios' : 'Crear Registro'}
           </Button>
         </DialogActions>
@@ -651,7 +678,9 @@ export default function Inventario() {
         <DialogTitle>Reabastecer Stock</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <Typography variant="body2" gutterBottom sx={{
+              color: "text.secondary"
+            }}>
               Producto: <b>{productoSeleccionado?.nombre}</b>
             </Typography>
             <TextField
@@ -661,16 +690,6 @@ export default function Inventario() {
               autoFocus
               sx={{ mt: 2 }}
               onKeyDown={(e) => handleKeyDownNumerico(e, !detallesStockDialog.esPieza)}
-              inputProps={{ min: 0, step: detallesStockDialog.esPieza ? "1" : "any" }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#666' }}>
-                      {detallesStockDialog.sufijo}
-                    </Typography>
-                  </InputAdornment>
-                )
-              }}
               value={stockExtra}
               onChange={(e) => setStockExtra(e.target.value)}
               helperText={
@@ -678,12 +697,24 @@ export default function Inventario() {
                   ? "Ingresa números enteros únicamente."
                   : `Ingresa la cantidad en ${detallesStockDialog.unidadTexto}.`
               }
-            />
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#666' }}>
+                        {detallesStockDialog.sufijo}
+                      </Typography>
+                    </InputAdornment>
+                  )
+                },
+
+                htmlInput: { min: 0, step: detallesStockDialog.esPieza ? "1" : "any" }
+              }} />
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenStockDialog(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleGuardarStockExtra} sx={{ backgroundColor: '#2e7d32' }}>
+          <Button variant="contained" color="error" onClick={() => setOpenStockDialog(false)}>Cancelar</Button>
+          <Button variant="contained" color="success" onClick={handleGuardarStockExtra}>
             Sumar Stock
           </Button>
         </DialogActions>
@@ -694,10 +725,12 @@ export default function Inventario() {
         <DialogTitle>Ajuste de Inventario</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <Typography variant="body2" gutterBottom sx={{
+              color: "text.secondary"
+            }}>
               Producto a ajustar: <b>{productoAjuste?.nombre}</b>
             </Typography>
-            <Typography variant="caption" display="block" color="error" gutterBottom>
+            <Typography variant="caption" color="error" gutterBottom sx={{ display: 'block' }}>
               Atención: Esta acción sobreescribirá la cantidad actual en el sistema.
             </Typography>
 
@@ -708,20 +741,22 @@ export default function Inventario() {
               autoFocus
               sx={{ mt: 2 }}
               onKeyDown={(e) => handleKeyDownNumerico(e, !detallesAjusteDialog.esPieza)}
-              inputProps={{ min: 0, step: detallesAjusteDialog.esPieza ? "1" : "any" }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#666' }}>
-                      {detallesAjusteDialog.sufijo}
-                    </Typography>
-                  </InputAdornment>
-                )
-              }}
               value={nuevoStockAjuste}
               onChange={(e) => setNuevoStockAjuste(e.target.value)}
               helperText="Indica la cantidad real que hay actualmente en almacén."
-            />
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#666' }}>
+                        {detallesAjusteDialog.sufijo}
+                      </Typography>
+                    </InputAdornment>
+                  )
+                },
+
+                htmlInput: { min: 0, step: detallesAjusteDialog.esPieza ? "1" : "any" }
+              }} />
 
             <TextField
               label="Motivo del Ajuste (Opcional)"
@@ -734,8 +769,8 @@ export default function Inventario() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenAjusteDialog(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleGuardarAjuste} sx={{ backgroundColor: '#ed6c02' }}>
+          <Button variant="contained" color="error" onClick={() => setOpenAjusteDialog(false)}>Cancelar</Button>
+          <Button variant="contained" color="success" onClick={handleGuardarAjuste}>
             Confirmar Ajuste
           </Button>
         </DialogActions>

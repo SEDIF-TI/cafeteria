@@ -24,6 +24,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.TextStyle;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -47,18 +48,38 @@ public class DashboardService {
     private final PrestamoUtensilioRepository prestamoRepository;
     private final ClienteRepository clienteRepository;
 
+    /** Resumen de los ultimos {@code dias} dias (hasta hoy). */
     @Transactional(readOnly = true)
     public DashboardResponseRecord obtenerResumen(int dias) {
         int periodo = Math.max(1, Math.min(dias, 365));
         LocalDate hoy = LocalDate.now();
-        LocalDateTime inicio = hoy.minusDays(periodo - 1L).atStartOfDay();
+        return calcular(hoy.minusDays(periodo - 1L), hoy, periodo);
+    }
+
+    /** Resumen para un rango de fechas explicito [desde, hasta], ambas inclusive. */
+    @Transactional(readOnly = true)
+    public DashboardResponseRecord obtenerResumen(LocalDate desde, LocalDate hasta) {
+        if (desde == null || hasta == null) {
+            throw new IllegalArgumentException("Indica la fecha de inicio y la fecha de fin.");
+        }
+        if (hasta.isBefore(desde)) {
+            LocalDate tmp = desde; desde = hasta; hasta = tmp;
+        }
+        int periodo = (int) Math.min(366, ChronoUnit.DAYS.between(desde, hasta) + 1);
+        return calcular(desde, hasta, periodo);
+    }
+
+    private DashboardResponseRecord calcular(LocalDate desde, LocalDate hasta, int periodo) {
+        LocalDate hoy = LocalDate.now();
+        LocalDateTime inicio = desde.atStartOfDay();
+        LocalDateTime fin = hasta.plusDays(1).atStartOfDay(); // exclusivo
         LocalDateTime inicioAnterior = inicio.minusDays(periodo);
 
         List<Venta> todas = ventaRepository.findDesdeConDetalles(inicioAnterior).stream()
                 .filter(v -> v.getAuditable() != null && v.getAuditable().getFechaCreacion() != null)
                 .filter(v -> !ANULADAS.contains(v.getEstado()))
                 .toList();
-        List<Venta> ventas = todas.stream().filter(v -> !fecha(v).isBefore(inicio)).toList();
+        List<Venta> ventas = todas.stream().filter(v -> !fecha(v).isBefore(inicio) && fecha(v).isBefore(fin)).toList();
         List<Venta> anteriores = todas.stream().filter(v -> fecha(v).isBefore(inicio)).toList();
         List<Venta> deHoy = ventas.stream().filter(v -> fecha(v).toLocalDate().equals(hoy)).toList();
 
@@ -158,7 +179,8 @@ public class DashboardService {
                 .map(e -> new Punto(e.getKey(), BigDecimal.valueOf(e.getValue()[0]), e.getValue()[0]))
                 .sorted(Comparator.comparing(Punto::valor).reversed()).toList();
         long perdidos = prestamoRepository.findByEstadoInOrderByFechaSalidaDesc(EnumSet.of(EstadoPrestamo.PERDIDO)).stream()
-                .filter(p -> p.getFechaDevolucion() != null && !p.getFechaDevolucion().isBefore(inicio))
+                .filter(p -> p.getFechaDevolucion() != null && !p.getFechaDevolucion().isBefore(inicio)
+                        && p.getFechaDevolucion().isBefore(fin))
                 .mapToLong(p -> p.getDetalles().stream().mapToInt(d -> d.pendiente()).sum())
                 .sum();
 

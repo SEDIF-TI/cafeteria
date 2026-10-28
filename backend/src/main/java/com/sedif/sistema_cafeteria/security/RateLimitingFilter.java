@@ -51,6 +51,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
     /** Rutas vigiladas: las que aceptan credenciales sin autenticacion previa. */
     private static final Set<String> RUTAS_PROTEGIDAS = Set.of(
+            "/api/v1/auth/acceso", // login unificado (personal + cliente): el que usa la pantalla de inicio
             "/api/v1/auth/login",
             "/api/v1/auth/registro",
             "/api/v1/clientes",

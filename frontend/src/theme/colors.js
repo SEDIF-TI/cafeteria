@@ -1,6 +1,6 @@
 export const coloresInstitucionales = {
-    primario: '#691C32', // Guinda institucional (color principal de botones)
-    primarioOscuro: '#4A1323', // Tono para hover/estados presionados
+    primario: '#fc6c9c', // Rosa (color principal de botones)
+    primarioOscuro: '#fc90b4', // Tono claro para hover/estados
     secundario: '#9F2241',
     secundarioOscuro: '#7A1A32',
     dorado: '#BC955C',

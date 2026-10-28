@@ -6,6 +6,12 @@ export default defineConfig({
   server: {
     host: true,           // escucha en todas las interfaces (celulares en la misma red)
     allowedHosts: true,   // permite dominios de tunel (cloudflared/ngrok) para acceso desde datos moviles
+    watch: {
+      // La carpeta vive en OneDrive; el watcher nativo de Windows pierde cambios ahi.
+      // El polling revisa los archivos periodicamente y detecta TODO cambio de forma fiable.
+      usePolling: true,
+      interval: 300,
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

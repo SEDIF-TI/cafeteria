@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card, CardContent, Typography, Box, Paper, Table, TableBody, TableCell, TableHead,
-  TableRow, Chip, CircularProgress, ToggleButtonGroup, ToggleButton, Alert, LinearProgress
+  TableRow, Chip, CircularProgress, ToggleButtonGroup, ToggleButton, Alert, LinearProgress,
+  TextField, Button, Stack
 } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
@@ -20,6 +21,15 @@ const ESTADO = { bueno: '#0ca30c', alerta: '#fab219', critico: '#d03b3b' };
 const GRID = '#e6e5e0';
 const TINTA_SEC = '#52514e';
 
+// Color fijo por método de pago: Efectivo = verde, Deuda/crédito = rojo, Tarjeta = azul.
+const COLOR_PAGO = (nombre) => {
+  const n = (nombre || '').toUpperCase();
+  if (n.includes('EFECTIVO')) return ESTADO.bueno;
+  if (n.includes('DEUDA') || n.includes('CREDITO') || n.includes('CRÉDITO')) return ESTADO.critico;
+  if (n.includes('TARJETA')) return '#2a78d6';
+  return PRINCIPAL;
+};
+
 const dinero = (v) => `$${Number(v || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const dineroCorto = (v) => {
   const n = Number(v || 0);
@@ -36,15 +46,28 @@ function Kpi({ titulo, valor, detalle, color, tendencia }) {
   return (
     <Card elevation={1} sx={{ borderLeft: `4px solid ${color || PRINCIPAL}`, height: '100%' }}>
       <CardContent sx={{ py: 2 }}>
-        <Typography color="text.secondary" variant="caption" textTransform="uppercase" fontWeight="bold">
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.secondary",
+            fontWeight: "bold",
+            textTransform: 'uppercase'
+          }}>
           {titulo}
         </Typography>
-        <Typography variant="h5" fontWeight="bold" sx={{ mt: 0.5 }}>{valor}</Typography>
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: "bold",
+            mt: 0.5
+          }}>{valor}</Typography>
         {detalle && (
-          <Box display="flex" alignItems="center" gap={0.5} mt={0.5}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
             {tendencia === 'up' && <TrendingUpIcon fontSize="small" sx={{ color: ESTADO.bueno }} />}
             {tendencia === 'down' && <TrendingDownIcon fontSize="small" sx={{ color: ESTADO.critico }} />}
-            <Typography variant="body2" color="text.secondary">{detalle}</Typography>
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>{detalle}</Typography>
           </Box>
         )}
       </CardContent>
@@ -55,24 +78,33 @@ function Kpi({ titulo, valor, detalle, color, tendencia }) {
 function Panel({ titulo, subtitulo, children, alto = 320 }) {
   return (
     <Paper elevation={1} sx={{ p: 2.5, display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="subtitle1" fontWeight="bold">{titulo}</Typography>
-      {subtitulo && <Typography variant="body2" color="text.secondary" mb={1}>{subtitulo}</Typography>}
+      <Typography variant="subtitle1" sx={{
+        fontWeight: "bold"
+      }}>{titulo}</Typography>
+      {subtitulo && <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 1
+        }}>{subtitulo}</Typography>}
       <Box sx={{ width: '100%', height: alto }}>{children}</Box>
     </Paper>
   );
 }
 
-function SinDatos() {
+function SinDatos({ mensaje = 'Sin datos en el periodo' }) {
   return (
-    <Box height="100%" display="flex" alignItems="center" justifyContent="center">
-      <Typography variant="body2" color="text.secondary">Sin datos en el periodo</Typography>
+    <Box sx={{ height: '100%', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2, textAlign: 'center' }}>
+      <Typography variant="body2" sx={{
+        color: "text.secondary"
+      }}>{mensaje}</Typography>
     </Box>
   );
 }
 
 /** Barras horizontales de una sola serie: ranking de nombres largos legible en móvil. */
-function BarrasRanking({ datos, campo = 'valor', formato = dinero, color = PRINCIPAL, nombreSerie }) {
-  if (!datos?.length) return <SinDatos />;
+function BarrasRanking({ datos, campo = 'valor', formato = dinero, color = PRINCIPAL, nombreSerie, vacioMensaje }) {
+  if (!datos?.length) return <SinDatos mensaje={vacioMensaje} />;
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={datos} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 4 }}>
@@ -95,15 +127,20 @@ const grid = (cols) => ({
 
 export default function Dashboard() {
   const [dias, setDias] = useState(30);
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+
+  const rangoActivo = Boolean(desde && hasta);
 
   useEffect(() => {
     const cargar = async () => {
       setCargando(true);
       try {
-        const res = await api.get('/dashboard/resumen', { params: { dias } });
+        const params = desde && hasta ? { desde, hasta } : { dias };
+        const res = await api.get('/dashboard/resumen', { params });
         setDatos(res.data);
         setError('');
       } catch (err) {
@@ -113,11 +150,11 @@ export default function Dashboard() {
       }
     };
     cargar();
-  }, [dias]);
+  }, [dias, desde, hasta]);
 
   if (cargando && !datos) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="80vh">
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
         <CircularProgress sx={{ color: 'primary.main' }} />
       </Box>
     );
@@ -132,7 +169,7 @@ export default function Dashboard() {
   const variacion = anterior > 0 ? ((Number(k.ingresosPeriodo) - anterior) / anterior) * 100 : null;
   const textoVariacion = variacion === null
     ? 'Sin periodo previo para comparar'
-    : `${variacion >= 0 ? '+' : ''}${variacion.toFixed(1)}% vs. ${dias} días anteriores`;
+    : `${variacion >= 0 ? '+' : ''}${variacion.toFixed(1)}% vs. ${datos.dias} días anteriores`;
   const serie = datos.ventasPorDia.map((d) => ({ ...d, etiqueta: fechaCorta(d.fecha) }));
   const metodosPago = datos.metodosPago.slice(0, 7);
 
@@ -142,25 +179,55 @@ export default function Dashboard() {
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
             <DashboardIcon color="primary" fontSize="large" />
-            <Typography variant="h4" fontWeight="bold">Panel Principal</Typography>
+            <Typography variant="h4" sx={{
+              fontWeight: "bold"
+            }}>Panel Principal</Typography>
           </Box>
-          <Typography variant="subtitle1" color="text.secondary">
+          <Typography variant="subtitle1" sx={{
+            color: "text.secondary"
+          }}>
             Indicadores de ventas, crédito, inventario y cubiertos para la toma de decisiones.
           </Typography>
         </Box>
-        <ToggleButtonGroup size="small" exclusive value={dias} onChange={(_, v) => v && setDias(v)}>
-          <ToggleButton value={7}>7 días</ToggleButton>
-          <ToggleButton value={30}>30 días</ToggleButton>
-          <ToggleButton value={90}>90 días</ToggleButton>
-          <ToggleButton value={365}>1 año</ToggleButton>
-        </ToggleButtonGroup>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' }, flexWrap: 'wrap' }}>
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={rangoActivo ? null : dias}
+            onChange={(_, v) => { if (v) { setDias(v); setDesde(''); setHasta(''); } }}
+          >
+            <ToggleButton value={7}>7 días</ToggleButton>
+            <ToggleButton value={30}>30 días</ToggleButton>
+            <ToggleButton value={90}>90 días</ToggleButton>
+            <ToggleButton value={365}>1 año</ToggleButton>
+          </ToggleButtonGroup>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <TextField
+              size="small" type="date" label="Desde" value={desde}
+              onChange={(e) => setDesde(e.target.value)}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: hasta || undefined } }}
+              sx={{ width: 155 }}
+            />
+            <TextField
+              size="small" type="date" label="Hasta" value={hasta}
+              onChange={(e) => setHasta(e.target.value)}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: desde || undefined } }}
+              sx={{ width: 155 }}
+            />
+            {rangoActivo && (
+              <Button size="small" color="inherit" onClick={() => { setDesde(''); setHasta(''); }}>
+                Limpiar
+              </Button>
+            )}
+          </Stack>
+        </Stack>
       </Box>
       {cargando && <LinearProgress sx={{ mb: 2 }} />}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {/* ---------------- KPIs */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
-        <Kpi titulo={`Ingresos (${dias} días)`} valor={dinero(k.ingresosPeriodo)} detalle={textoVariacion}
+        <Kpi titulo={`Ingresos (${datos.dias} días)`} valor={dinero(k.ingresosPeriodo)} detalle={textoVariacion}
              tendencia={variacion === null ? null : variacion >= 0 ? 'up' : 'down'} />
         <Kpi titulo="Hoy" valor={dinero(k.ingresosHoy)} detalle={`${k.ventasHoy} ventas`} />
         <Kpi titulo="Ticket promedio" valor={dinero(k.ticketPromedio)} detalle={`${k.ventasPeriodo} ventas en el periodo`} />
@@ -176,7 +243,12 @@ export default function Dashboard() {
       </Box>
 
       {/* ---------------- Ventas en el tiempo */}
-      <Typography variant="h6" fontWeight="bold" mb={1.5}>Ventas</Typography>
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: "bold",
+          mb: 1.5
+        }}>Ventas</Typography>
       <Box sx={{ mb: 2.5 }}>
         <Panel titulo="Ingresos por día" subtitulo="Total vendido y parte que quedó a crédito" alto={300}>
           <ResponsiveContainer width="100%" height="100%">
@@ -220,7 +292,12 @@ export default function Dashboard() {
       </Box>
 
       {/* ---------------- Productos */}
-      <Typography variant="h6" fontWeight="bold" mb={1.5}>Productos</Typography>
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: "bold",
+          mb: 1.5
+        }}>Productos</Typography>
       <Box sx={grid(2)}>
         <Panel titulo="Más vendidos (piezas)" subtitulo="Top 10: asegurar insumos y disponibilidad" alto={340}>
           <BarrasRanking datos={datos.topProductos} campo="cantidad" formato={(v) => `${v} pzas`} nombreSerie="Vendidos" />
@@ -240,7 +317,12 @@ export default function Dashboard() {
       </Box>
 
       {/* ---------------- Clientes y crédito */}
-      <Typography variant="h6" fontWeight="bold" mb={1.5}>Clientes y crédito</Typography>
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: "bold",
+          mb: 1.5
+        }}>Clientes y crédito</Typography>
       <Box sx={grid(2)}>
         <Panel titulo="Consumo por área del edificio" subtitulo="Qué áreas generan más ventas" alto={300}>
           <BarrasRanking datos={datos.ventasPorArea.slice(0, 10)} nombreSerie="Ingresos" />
@@ -251,7 +333,7 @@ export default function Dashboard() {
               <PieChart>
                 <Pie data={metodosPago} dataKey="valor" nameKey="nombre" innerRadius="55%" outerRadius="80%"
                      paddingAngle={2} stroke="#fcfcfb" strokeWidth={2}>
-                  {metodosPago.map((m, i) => <Cell key={m.nombre} fill={SERIES[i]} />)}
+                  {metodosPago.map((m) => <Cell key={m.nombre} fill={COLOR_PAGO(m.nombre)} />)}
                 </Pie>
                 <Tooltip formatter={(v, n, p) => [`${dinero(v)} (${p.payload.cantidad} ventas)`, n]} />
                 <Legend />
@@ -262,39 +344,32 @@ export default function Dashboard() {
         <Panel titulo="Adeudo por área" subtitulo="Dónde concentrar la cobranza" alto={300}>
           <BarrasRanking datos={datos.deudaPorArea.slice(0, 10)} nombreSerie="Adeudo" color={SERIES[1]} />
         </Panel>
-        <Panel titulo="Principales deudores" subtitulo="Top 10 por saldo pendiente" alto={300}>
-          <BarrasRanking datos={datos.topDeudores} nombreSerie="Adeudo" color={SERIES[1]} />
-        </Panel>
-        <Panel titulo="Ventas por cajero" alto={260}>
-          <BarrasRanking datos={datos.ventasPorCajero} nombreSerie="Ingresos" />
-        </Panel>
       </Box>
 
       {/* ---------------- Cubiertos */}
-      <Typography variant="h6" fontWeight="bold" mb={1.5}>Cubiertos y utensilios</Typography>
-      <Box sx={grid(2)}>
-        <Panel titulo="Disponibilidad de utensilios" subtitulo="Piezas en cafetería vs. fuera" alto={300}>
-          {datos.utensilios.length ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={datos.utensilios} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke={GRID} />
-                <XAxis dataKey="nombre" {...ejeProps} />
-                <YAxis {...ejeProps} allowDecimals={false} width={40} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="disponibles" name="En cafetería" stackId="u" fill={SERIES[0]} stroke="#fcfcfb" strokeWidth={2} />
-                <Bar dataKey="fuera" name="Fuera" stackId="u" fill={SERIES[1]} stroke="#fcfcfb" strokeWidth={2} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <SinDatos />}
-        </Panel>
-        <Panel titulo="Cubiertos fuera por área" subtitulo="Dónde ir a recuperarlos" alto={300}>
-          <BarrasRanking datos={datos.cubiertosFueraPorArea} formato={(v) => `${v} pzas`} nombreSerie="Piezas" color={SERIES[1]} />
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: "bold",
+          mb: 1.5
+        }}>Cubiertos prestados fuera de la cafetería</Typography>
+      <Box sx={grid(1)}>
+        <Panel titulo="Cubiertos prestados por área" subtitulo="Dónde ir a recuperarlos" alto={260}>
+          <BarrasRanking datos={datos.cubiertosFueraPorArea} formato={(v) => `${v} pzas`} nombreSerie="Piezas" color={SERIES[1]}
+            vacioMensaje="No hay cubiertos prestados fuera de la cafetería en este momento." />
         </Panel>
       </Box>
 
       {/* ---------------- Insumos críticos */}
-      <Typography variant="h6" fontWeight="bold" mb={1.5} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: "bold",
+          mb: 1.5,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
         <WarningAmberIcon sx={{ color: ESTADO.critico }} /> Insumos que requieren reabastecimiento
       </Typography>
       <Paper elevation={1} sx={{ width: '100%', overflowX: 'auto' }}>
