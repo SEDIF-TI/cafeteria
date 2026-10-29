@@ -11,21 +11,26 @@
 #  subdominio (o un wildcard) y se puede publicar cuantos proyectos se quiera.
 # ===========================================================================
 
-# --- HOY (sin dominio): un solo proyecto, servido por IP en HTTP ---
+# --- CAFETERIA con dominio y HTTPS ---
+#  IP publica 187.143.139.20 (NAT 80 y 443 -> 10.10.10.65). Caddy saca y renueva
+#  solo el certificado de Let's Encrypt (comprobacion por el puerto 80) y redirige
+#  http -> https. Requiere que el DNS ya apunte aqui ANTES de levantar el proxy:
+#  si no, Let's Encrypt rechaza los intentos y bloquea el nombre por un rato.
+cafeteria.sedif.gob.mx {
+	encode gzip
+	reverse_proxy cafeteria_frontend:80
+}
+
+# --- Acceso por IP en la intranet (http://10.10.10.65), sin cifrar ---
+#  Se conserva mientras todos pasan al dominio; despues se puede quitar.
 :80 {
 	encode gzip
 	reverse_proxy cafeteria_frontend:80
 }
 
 # ---------------------------------------------------------------------------
-#  CON DOMINIO (descomentar; un bloque por proyecto). Caddy saca y renueva
-#  el certificado SSL automaticamente para cada subdominio.
+#  OTROS PROYECTOS (un bloque por subdominio, igual que el de arriba):
 # ---------------------------------------------------------------------------
-# cafeteria.suzona.gob.mx {
-# 	encode gzip
-# 	reverse_proxy cafeteria_frontend:80
-# }
-#
 # rrhh.suzona.gob.mx {
 # 	encode gzip
 # 	reverse_proxy rrhh_frontend:80

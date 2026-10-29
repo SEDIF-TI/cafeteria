@@ -16,9 +16,9 @@ services:
     container_name: edge_caddy
     restart: always
     ports:
-      - "80:80"
-      # 443 se activa cuando haya dominio (SSL automatico con Caddy):
-      # - "443:443"
+      - "80:80"         # http: comprobacion de Let's Encrypt y redireccion a https
+      - "443:443"       # https
+      - "443:443/udp"   # https por HTTP/3 (opcional; si no llega, usa el 443/tcp)
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - edge_caddy_data:/data       # certificados y estado ACME (persistente)
