@@ -3,10 +3,11 @@ import {
   Container, Typography, Box, Button, Table, TableBody, TableCell,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, MenuItem, Chip, Grid, IconButton, Tooltip,
-  InputAdornment
+  InputAdornment, Autocomplete, Divider, CircularProgress
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import BuildIcon from '@mui/icons-material/Build';
 import api from '../../api/axiosClient';
@@ -20,6 +21,14 @@ const tipoDe = (item) => {
   if (item?.tipoProducto) return item.tipoProducto;
   if (item?.esDirecto === false) return item?.inventario ? 'MATERIA_PRIMA' : 'PREPARADO';
   return 'DIRECTO';
+};
+
+// Unidad base del insumo (la receta siempre se captura en g, ml o piezas).
+const unidadInsumo = (insumo) => {
+  const uni = String(insumo?.inventario?.unidadMedida || '').toUpperCase();
+  if (uni.includes('GRAMO')) return { sufijo: 'g', esPieza: false, porMil: true };
+  if (uni.includes('MILILITRO')) return { sufijo: 'ml', esPieza: false, porMil: true };
+  return { sufijo: 'pza', esPieza: true, porMil: false };
 };
 
 export default function Inventario() {
@@ -49,6 +58,10 @@ export default function Inventario() {
     stockMinimo: '',
     unidadVisual: 'Piezas'
   });
+
+  // Receta del producto PREPARADO, capturada en el mismo diálogo: [{ insumoId, cantidad }]
+  const [ingredientes, setIngredientes] = useState([]);
+  const [cargandoReceta, setCargandoReceta] = useState(false);
 
   const unidadesVisuales = ['Piezas', 'Litros', 'Mililitros', 'Kilos', 'Gramos'];
 
@@ -110,11 +123,15 @@ export default function Inventario() {
       nombre: '', descripcion: '', precio: '', costo: '', categoriaId: '',
       tipoProducto: 'DIRECTO', cantidad: '', stockMinimo: '', unidadVisual: 'Piezas'
     });
+    setIngredientes([]);
     setOpenDialog(true);
   };
 
   const handleTipoRegistroChange = (e) => {
     const tipo = e.target.value; // 'DIRECTO' | 'PREPARADO' | 'MATERIA_PRIMA'
+    if (tipo === 'PREPARADO' && ingredientes.length === 0) {
+      setIngredientes([{ insumoId: '', cantidad: '' }]);
+    }
     setFormData((prev) => ({
       ...prev,
       tipoProducto: tipo,
@@ -175,7 +192,34 @@ export default function Inventario() {
     });
 
     setEditId(item.id);
+    setIngredientes([]);
     setOpenDialog(true);
+
+    if (tipoVal === 'PREPARADO') {
+      cargarReceta(item.id);
+    }
+  };
+
+  const cargarReceta = async (productoId) => {
+    setCargandoReceta(true);
+    try {
+      const res = await api.get(`/recetas/producto/${productoId}`);
+      const filas = (res.data || []).map((r) => ({ insumoId: Number(r.insumoId), cantidad: r.cantidad }));
+      setIngredientes(filas.length > 0 ? filas : [{ insumoId: '', cantidad: '' }]);
+    } catch (error) {
+      console.error('Error al cargar la receta:', error);
+      notificar('No se pudo cargar la receta del producto.', 'error');
+    } finally {
+      setCargandoReceta(false);
+    }
+  };
+
+  const handleIngredienteChange = (index, campo, valor) => {
+    setIngredientes((prev) => prev.map((fila, i) => {
+      if (i !== index) return fila;
+      // Al cambiar de insumo se limpia la cantidad: la unidad puede ser otra.
+      return campo === 'insumoId' ? { insumoId: valor, cantidad: '' } : { ...fila, [campo]: valor };
+    }));
   };
 
   const handleOpenSumarStock = (item) => {
@@ -318,6 +362,9 @@ export default function Inventario() {
     if (isNaN(costoVal) || costoVal < 0) {
       costoVal = 0;
     }
+    if (tipo === 'PREPARADO') {
+      costoVal = Number(costoReceta.toFixed(2)); // el servidor lo recalcula al guardar la receta
+    }
 
     let cantidadFinal = 0;
     let minimoFinal = 0;
@@ -373,9 +420,31 @@ export default function Inventario() {
       }
     }
 
+    let ingredientesPayload;
+    if (tipo === 'PREPARADO') {
+      if (ingredientes.length === 0) {
+        notificar('Agrega al menos un insumo a la receta.', 'warning');
+        return;
+      }
+      for (const fila of ingredientes) {
+        const insumo = insumosDisponibles.find((i) => Number(i.id) === Number(fila.insumoId));
+        const cant = parseFloat(fila.cantidad);
+        if (!insumo || isNaN(cant) || cant <= 0) {
+          notificar('Cada insumo de la receta debe estar seleccionado y con cantidad mayor a 0.', 'warning');
+          return;
+        }
+        if (unidadInsumo(insumo).esPieza && !Number.isInteger(cant)) {
+          notificar(`La cantidad de "${insumo.nombre}" va en piezas: usa un número entero.`, 'warning');
+          return;
+        }
+      }
+      ingredientesPayload = ingredientes.map((f) => ({ insumoId: Number(f.insumoId), cantidad: parseFloat(f.cantidad) }));
+    }
+
     const idCat = formData.categoriaId ? parseInt(formData.categoriaId, 10) : null;
 
     const payload = {
+      ingredientes: ingredientesPayload,
       nombre: formData.nombre.trim(),
       descripcion: formData.descripcion || '',
       precio: seVende ? (precioVal || 0) : 0,
@@ -416,8 +485,23 @@ export default function Inventario() {
   );
   const pag = usePaginacion(inventarioOrdenado);
 
+  // Insumos que pueden entrar en una receta (materia prima activa).
+  const insumosDisponibles = useMemo(
+    () => inventarioOrdenado.filter((p) => tipoDe(p) === 'MATERIA_PRIMA' && p.activo !== false),
+    [inventarioOrdenado]
+  );
+
   const esPreparadoForm = formData.tipoProducto === 'PREPARADO';
   const esMateriaPrimaForm = formData.tipoProducto === 'MATERIA_PRIMA';
+
+  // Costo estimado de una porción: el costo del insumo es por Kg / L / pieza.
+  const costoReceta = ingredientes.reduce((total, fila) => {
+    const insumo = insumosDisponibles.find((i) => Number(i.id) === Number(fila.insumoId));
+    const cant = parseFloat(fila.cantidad);
+    if (!insumo || isNaN(cant)) return total;
+    const costo = Number(insumo.costo || 0);
+    return total + (unidadInsumo(insumo).porMil ? (costo / 1000) * cant : costo * cant);
+  }, 0);
   const permiteDecimales = esMateriaPrimaForm && formData.unidadVisual !== 'Piezas';
   const detallesStockDialog = obtenerDetallesUnidad(productoSeleccionado);
   const detallesAjusteDialog = obtenerDetallesUnidad(productoAjuste);
@@ -593,8 +677,10 @@ export default function Inventario() {
                 type="number"
                 fullWidth
                 onKeyDown={(e) => handleKeyDownNumerico(e, true)}
-                helperText={esMateriaPrimaForm ? "Costo por Kilo / Litro / Pieza de insumo" : "Costo de compra / preparación"}
-                value={formData.costo}
+                disabled={esPreparadoForm}
+                helperText={esMateriaPrimaForm ? "Costo por Kilo / Litro / Pieza de insumo"
+                  : (esPreparadoForm ? "Se calcula con la receta" : "Costo de compra / preparación")}
+                value={esPreparadoForm ? costoReceta.toFixed(2) : formData.costo}
                 onChange={(e) => setFormData({ ...formData, costo: e.target.value })}
                 slotProps={{
                   htmlInput: { min: 0, step: "0.01" }
@@ -664,6 +750,80 @@ export default function Inventario() {
               </TextField>
             </Grid>
           </Grid>
+
+          {/* Receta: solo PREPARADO. Se guarda junto con el producto. */}
+          {esPreparadoForm && (
+            <Box sx={{ mt: 3 }}>
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                Receta (insumos por porción)
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                Lo que se descuenta del inventario cada vez que se vende una porción.
+              </Typography>
+
+              {cargandoReceta ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : (
+                ingredientes.map((fila, index) => {
+                  const insumo = insumosDisponibles.find((i) => Number(i.id) === Number(fila.insumoId)) || null;
+                  const unidad = unidadInsumo(insumo);
+                  return (
+                    <Grid container spacing={2} key={index} sx={{ mb: 1.5, alignItems: 'center' }}>
+                      <Grid size={{ xs: 12, sm: 7 }}>
+                        <Autocomplete
+                          options={insumosDisponibles}
+                          getOptionLabel={(o) => o?.nombre || ''}
+                          isOptionEqualToValue={(o, v) => Number(o.id) === Number(v?.id)}
+                          value={insumo}
+                          onChange={(e, nuevo) => handleIngredienteChange(index, 'insumoId', nuevo ? Number(nuevo.id) : '')}
+                          noOptionsText="No hay materia prima registrada"
+                          renderInput={(params) => <TextField {...params} label="Insumo" size="small" />}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 9, sm: 4 }}>
+                        <TextField
+                          label="Cantidad"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          disabled={!insumo}
+                          value={fila.cantidad}
+                          onKeyDown={(e) => handleKeyDownNumerico(e, !unidad.esPieza)}
+                          onChange={(e) => handleIngredienteChange(index, 'cantidad', e.target.value)}
+                          slotProps={{
+                            input: {
+                              endAdornment: insumo ? <InputAdornment position="end">{unidad.sufijo}</InputAdornment> : null
+                            },
+                            htmlInput: { min: 0, step: unidad.esPieza ? '1' : 'any' }
+                          }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 3, sm: 1 }} sx={{ textAlign: 'center' }}>
+                        <Tooltip title="Quitar insumo">
+                          <IconButton color="error" onClick={() => setIngredientes((prev) => prev.filter((_, i) => i !== index))}>
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Grid>
+                    </Grid>
+                  );
+                })
+              )}
+
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                disabled={cargandoReceta}
+                onClick={() => setIngredientes((prev) => [...prev, { insumoId: '', cantidad: '' }])}
+              >
+                Agregar insumo
+              </Button>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button variant="contained" color="error" onClick={handleCloseDialog}>Cancelar</Button>

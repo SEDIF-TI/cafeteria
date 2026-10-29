@@ -2,6 +2,7 @@ package com.sedif.sistema_cafeteria.core.recetas;
 
 import com.sedif.sistema_cafeteria.core.producto.Producto;
 import com.sedif.sistema_cafeteria.core.producto.ProductoRepository;
+import com.sedif.sistema_cafeteria.core.producto.TipoProducto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,24 +73,22 @@ public class RecetaService {
 
     @Transactional(readOnly = true)
     public List<RecetaResumenDTO> obtenerResumenRecetas() {
-        List<Receta> todasLasRecetas = recetaRepository.findAll();
-        if (todasLasRecetas.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        List<Producto> productosConReceta = todasLasRecetas.stream()
+        // Todos los PREPARADO, tengan o no receta, para que uno sin receta no
+        // desaparezca de la lista; mas los que tienen receta con otro tipo (datos viejos).
+        java.util.LinkedHashSet<Producto> productos = new java.util.LinkedHashSet<>(
+                productoRepository.findByTipoProducto(TipoProducto.PREPARADO));
+        recetaRepository.findAll().stream()
                 .map(Receta::getProductoPadre)
                 .filter(p -> p != null && p.getId() != null)
-                .distinct()
-                .toList();
+                .forEach(productos::add);
 
         List<RecetaResumenDTO> resumenes = new ArrayList<>();
 
-        for (Producto producto : productosConReceta) {
+        for (Producto producto : productos) {
             List<Receta> ingredientes = recetaRepository.findByProductoPadreId(producto.getId());
 
             long minPorciones = Long.MAX_VALUE;
-            String insumoCritico = "Sin insumos registrados";
+            String insumoCritico = "Sin receta: agrega sus insumos";
 
             for (Receta r : ingredientes) {
                 if (r == null || r.getInsumo() == null) continue;

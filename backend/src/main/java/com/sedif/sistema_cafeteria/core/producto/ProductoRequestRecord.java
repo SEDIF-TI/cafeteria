@@ -1,11 +1,13 @@
 package com.sedif.sistema_cafeteria.core.producto;
 
 import com.sedif.sistema_cafeteria.core.inventario.UnidadMedida;
+import com.sedif.sistema_cafeteria.core.recetas.IngredienteRequestDTO;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.util.List;
 
 public record ProductoRequestRecord(
         @NotBlank(message = "El nombre del producto es obligatorio")
@@ -37,6 +39,9 @@ public record ProductoRequestRecord(
         UnidadMedida unidadMedida, // Obligatorio si es DIRECTO o MATERIA_PRIMA
 
         @NotNull(message = "La categoría es obligatoria")
-        Long categoriaId
+        Long categoriaId,
+
+        // Solo PREPARADO: la receta se guarda junto con el producto. null = no tocar la receta.
+        List<IngredienteRequestDTO> ingredientes
 ) {
 }

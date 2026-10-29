@@ -7,6 +7,7 @@ import com.sedif.sistema_cafeteria.core.inventario.InventarioRepository;
 import com.sedif.sistema_cafeteria.core.inventario.UnidadMedida;
 import com.sedif.sistema_cafeteria.core.recetas.Receta;
 import com.sedif.sistema_cafeteria.core.recetas.RecetaRepository;
+import com.sedif.sistema_cafeteria.core.recetas.RecetaService;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class ProductoService {
     private final CategoriaRepository categoriaRepository;
     private final InventarioRepository inventarioRepository;
     private final RecetaRepository recetaRepository;
+    private final RecetaService recetaService;
 
     @Transactional
     public ProductoResponseRecord crearProducto(ProductoRequestRecord request) {
@@ -94,6 +96,7 @@ public class ProductoService {
                 .build();
 
         Producto productoGuardado = productoRepository.save(producto);
+        guardarRecetaSiAplica(productoGuardado, request);
         return new ProductoResponseRecord(productoGuardado, calcularStockDisponible(productoGuardado));
     }
 
@@ -177,6 +180,7 @@ public class ProductoService {
         }
 
         Producto productoGuardado = productoRepository.save(producto);
+        guardarRecetaSiAplica(productoGuardado, request);
 
         // Si el costo del insumo cambió, actualizamos los productos padre en cascada
         if (costoCambio) {
@@ -193,6 +197,20 @@ public class ProductoService {
 
         producto.setActivo(!producto.getActivo());
         productoRepository.save(producto);
+    }
+
+    /**
+     * Guarda la receta enviada junto con un PREPARADO, dentro de la misma transaccion:
+     * si un insumo falla, tampoco se crea el producto. La receta recalcula el costo.
+     */
+    private void guardarRecetaSiAplica(Producto producto, ProductoRequestRecord request) {
+        if (producto.getTipoProducto() != TipoProducto.PREPARADO || request.ingredientes() == null) {
+            return;
+        }
+        if (request.ingredientes().isEmpty()) {
+            throw new IllegalArgumentException("Agrega al menos un insumo a la receta del producto preparado.");
+        }
+        recetaService.guardarOActualizarReceta(producto.getId(), request.ingredientes());
     }
 
     private UnidadMedida parseUnidadMedida(Object unidadInput) {

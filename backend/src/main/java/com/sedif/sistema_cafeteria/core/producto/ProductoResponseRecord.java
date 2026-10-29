@@ -7,6 +7,7 @@ public record ProductoResponseRecord(
     String nombre,
     String descripcion,
     BigDecimal precio,
+    BigDecimal costo, // PREPARADO: calculado de la receta
     TipoProducto tipoProducto,
     Boolean esDirecto, // derivado (== tipoProducto DIRECTO); se conserva por compatibilidad
     Boolean activo,
@@ -20,6 +21,7 @@ public record ProductoResponseRecord(
             producto.getNombre(),
             producto.getDescripcion(),
             producto.getPrecio(),
+            producto.getCosto(),
             producto.getTipoProducto(),
             producto.getEsDirecto(),
             producto.getActivo(),

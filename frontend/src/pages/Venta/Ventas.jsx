@@ -315,12 +315,14 @@ export default function Ventas() {
                           {prod.nombre}
                         </Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                      {/* En tarjetas angostas el chip baja a su propio renglón en vez de encimarse al precio */}
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
                         <Typography
                           variant="h5"
                           sx={{
                             fontWeight: "900",
-                            color: "#fc6c9c"
+                            color: "#fc6c9c",
+                            whiteSpace: 'nowrap'
                           }}>
                           ${Number(prod.precio).toFixed(2)}
                         </Typography>
@@ -328,7 +330,7 @@ export default function Ventas() {
                           label={agotado ? 'Agotado' : `${stock} disp.`}
                           color={agotado ? 'default' : 'success'}
                           size="small"
-                          sx={{ fontWeight: 'bold', borderRadius: 2 }}
+                          sx={{ fontWeight: 'bold', borderRadius: 2, flexShrink: 0 }}
                         />
                       </Box>
                     </CardContent>
