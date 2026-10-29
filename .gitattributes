@@ -1,0 +1,2 @@
+# Los scripts de bash corren en la VM Linux: siempre con saltos de linea LF.
+*.sh text eol=lf

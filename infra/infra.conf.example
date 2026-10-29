@@ -1,0 +1,16 @@
+# Copiar como infra/infra.conf (no se versiona) y ajustar.
+
+# Correo que recibe los avisos de falla (respaldo, certificado).
+AVISO_CORREO="sistemas@ejemplo.gob.mx"
+
+# Carpeta de respaldos en la VM.
+RESPALDOS_DIR="/srv/respaldos/cafeteria"
+
+# Copia fuera del servidor con rclone (ver DESPLIEGUE, seccion 10). Vacio = no sube.
+#   ejemplo: RCLONE_DESTINO="nube-cifrada:cafeteria"
+RCLONE_DESTINO=""
+
+# Opcional: URLs de https://healthchecks.io (gratis). Avisan si el script
+# deja de ejecutarse por completo (VM apagada, cron roto).
+PING_RESPALDO=""
+PING_CERTIFICADO=""

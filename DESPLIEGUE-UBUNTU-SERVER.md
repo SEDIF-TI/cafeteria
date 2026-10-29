@@ -324,12 +324,98 @@ docker compose up -d --build
 
 ---
 
-## 10. Respaldos de la base de datos
+## 10. Respaldos de la base de datos y monitoreo del certificado
 
-### Desde el servidor (manual)
+### Regla 3-2-1
+**3** copias de los datos (la base + 2 respaldos), en **2** medios distintos, **1** fuera del edificio.
+
+| Copia    |                    Dónde                                 | Protege contra                               |
+|----------|----------------------------------------------------------|----------------------------------------------|
+| Original | Base en la VM                                            | -------------------------------------------- |
+|     1    | `/srv/respaldos/cafeteria` en la VM (automático, diario) | Borrados por error, actualizaciones fallidas |
+|     2    | PC Linux de respaldos (automático, cada 4 h; la PC jala) | Falla del Windows Server / VM               |
+|     3    | Disco externo cifrado en otro edificio (manual, mensual) | Ransomware, incendio, robo                   |
+
+> La VM vive dentro del Windows Server 10.10.10.60: la copia 1 está en el mismo equipo físico, por eso no basta sola.
+> La nube con rclone queda como opción (`RCLONE_DESTINO` en `infra/infra.conf`; vacío = no sube).
+
+### Instalación en la VM (una sola vez)
 ```bash
-cd ~/cafeteria
-docker exec postgres_cafeteria pg_dump -U postgres --clean --if-exists sistema_cafeteria > ~/respaldo_$(date +%F).sql
+# Usuario "respaldos": sin contraseña, solo entra con la llave de la PC y solo puede LEER /srv/respaldos
+sudo adduser --disabled-password --gecos "" respaldos
+sudo mkdir -p /srv/respaldos/cafeteria
+sudo chown -R sedif:respaldos /srv/respaldos
+sudo chmod -R u=rwX,g=rX,o= /srv/respaldos
+sudo find /srv/respaldos -type d -exec chmod g+s {} +   # lo nuevo hereda el grupo
+ls /usr/bin/rrsync                                       # debe existir (viene con rsync)
+
+cd ~/cafeteria && git pull
+chmod +x infra/respaldos/*.sh infra/monitoreo/*.sh
+cp infra/infra.conf.example infra/infra.conf
+nano infra/infra.conf          # correo de avisos
+```
+
+Probar a mano:
+```bash
+~/cafeteria/infra/respaldos/respaldo-bd.sh
+~/cafeteria/infra/respaldos/probar-restauracion.sh
+~/cafeteria/infra/monitoreo/revisar-certificado.sh
+```
+
+Programar con `crontab -e` (usuario sedif):
+```
+# Respaldo diario 02:30, revisión del certificado 09:00, prueba de restauración el día 2 de cada mes
+30 2 * * * /home/sedif/cafeteria/infra/respaldos/respaldo-bd.sh >> /srv/respaldos/cafeteria/respaldo.log 2>&1
+0 9 * * *  /home/sedif/cafeteria/infra/monitoreo/revisar-certificado.sh >> /srv/respaldos/cafeteria/certificado.log 2>&1
+0 10 2 * * /home/sedif/cafeteria/infra/respaldos/probar-restauracion.sh >> /srv/respaldos/cafeteria/restauracion.log 2>&1
+```
+
+### PC Linux de respaldos (copia 2)
+**En la PC** (con el usuario normal de la PC):
+```bash
+sudo apt install rsync openssh-client
+ssh-keygen -t ed25519 -f ~/.ssh/respaldos_vm -N "" -C "pc-respaldos"
+cat ~/.ssh/respaldos_vm.pub        # copiar esta linea completa
+scp -O sedif@10.10.10.65:~/cafeteria/infra/respaldos/jalar-respaldos.sh ~/   # pide la contrasena de sedif una vez
+chmod +x ~/jalar-respaldos.sh
+```
+
+**En la VM**, autorizar esa llave SOLO para leer `/srv/respaldos` (pegar la línea copiada en lugar de `LLAVE_PUBLICA`):
+```bash
+sudo mkdir -p /home/respaldos/.ssh
+echo 'command="/usr/bin/rrsync -ro /srv/respaldos",restrict LLAVE_PUBLICA' | sudo tee /home/respaldos/.ssh/authorized_keys
+sudo chown -R respaldos:respaldos /home/respaldos/.ssh
+sudo chmod 700 /home/respaldos/.ssh && sudo chmod 600 /home/respaldos/.ssh/authorized_keys
+```
+
+**En la PC**, probar y programar (`crontab -e`, cada 4 horas: solo trae lo nuevo, y si la PC estuvo apagada se pone al día):
+```bash
+~/jalar-respaldos.sh                 # la primera vez pregunta por la huella de la VM: responder "yes"
+ls -lR ~/respaldos-vm | head
+```
+```
+15 */4 * * * $HOME/jalar-respaldos.sh >> $HOME/respaldos-vm.log 2>&1
+```
+
+### Restaurar de verdad (emergencia)
+Primero se detiene el backend para que nadie escriba mientras tanto:
+```bash
+cd ~/cafeteria && docker compose stop backend
+docker exec -i postgres_cafeteria pg_restore -U postgres -d sistema_cafeteria --clean --if-exists --no-owner < /srv/respaldos/cafeteria/diario/ARCHIVO.dump
+docker compose start backend
+```
+
+### Disco externo (mensual)
+En la PC Linux de respaldos, con el disco conectado (cifrado con LUKS; Ubuntu lo ofrece al formatear desde "Discos").
+`DISCO` es el nombre con que aparece el disco montado:
+```bash
+rsync -a ~/respaldos-vm/ /media/$USER/DISCO/respaldos-vm/
+```
+Al terminar, expulsar el disco y guardarlo en otro edificio.
+
+### Desde el servidor (manual, rápido)
+```bash
+~/cafeteria/infra/respaldos/respaldo-bd.sh
 ```
 
 ### Desde otra PC de la intranet (sin entrar al servidor)
@@ -364,7 +450,7 @@ Y usa su función de exportar/respaldar.
 - [ ] Poner `app.errores.detallados=false` (para no exponer detalles de errores internos).
 - [ ] Revisar si conviene **restringir el puerto de la base** (5437) a solo ciertas IP de la intranet.
 - [ ] Cambiar las **contraseñas de prueba** de los usuarios.
-- [ ] Activar **HTTPS/SSL** cuando Redes entregue el **subdominio**.
+- [x] **HTTPS/SSL** activo en `cafeteria.sedif.gob.mx` (Caddy + Let's Encrypt, renovación automática) — HECHO.
 - [ ] Mantener las **imágenes base actualizadas** (`docker compose build --pull`) por seguridad.
 - [ ] Configurar **respaldos automáticos** y **actualizaciones de seguridad** del sistema.
 
