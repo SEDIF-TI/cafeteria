@@ -40,9 +40,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@code app.rate-limit.enabled} desactiva el filtro por completo.</p>
  *
  * <p>Detras de un reverse proxy la IP de la conexion es la del propio proxy, de
- * modo que todas las peticiones compartirian una unica cubeta. Por eso la IP se
- * toma de {@code X-Forwarded-For} o {@code X-Real-IP} cuando estan presentes, y
- * en produccion se exige {@code server.forward-headers-strategy=framework}.</p>
+ * modo que todas las peticiones compartirian una unica cubeta. Por eso se exige
+ * {@code server.forward-headers-strategy=framework}: Spring resuelve la IP real a
+ * partir de {@code X-Forwarded-For}, que el nginx del frontend envia ya verificada.</p>
  */
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
@@ -134,19 +134,14 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Resuelve la IP del cliente. {@code X-Forwarded-For} puede traer la cadena
-     * completa de proxies separada por comas, y en ella el primer elemento es
-     * el cliente original.
+     * Resuelve la IP del cliente. Con {@code server.forward-headers-strategy=framework}
+     * el {@code ForwardedHeaderFilter} de Spring corre antes que este filtro: oculta
+     * {@code X-Forwarded-For} y deja en {@code getRemoteAddr()} la IP que trae. Leer
+     * los encabezados a mano devolvia {@code X-Real-IP}, que era la IP del proxy, y
+     * todos los usuarios compartian una sola cubeta. El nginx del frontend es quien
+     * verifica la IP real y la envia como unico valor.
      */
     private String obtenerIpCliente(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        String realIp = request.getHeader("X-Real-IP");
-        if (realIp != null && !realIp.isBlank()) {
-            return realIp.trim();
-        }
         return request.getRemoteAddr();
     }
 
