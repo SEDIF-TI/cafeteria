@@ -31,7 +31,8 @@ mkdir -p "$DESTINO"
 chmod 700 "$DESTINO"   # datos personales: solo el usuario de la PC
 
 # "./" es la raiz que permite rrsync en la VM, o sea /srv/respaldos.
-rsync -a --chmod=D700,F600 -e "ssh -i $LLAVE -o BatchMode=yes -o ConnectTimeout=20" \
+# accept-new: la primera vez guarda la huella de la VM sin preguntar; si despues cambia, rechaza.
+rsync -a --chmod=D700,F600 -e "ssh -i $LLAVE -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new" \
       "$VM:./" "$DESTINO/" \
     || fallo "no se pudo copiar desde la VM ($VM)"
 

@@ -383,14 +383,14 @@ chmod +x ~/jalar-respaldos.sh
 **En la VM**, autorizar esa llave SOLO para leer `/srv/respaldos` (pegar la línea copiada en lugar de `LLAVE_PUBLICA`):
 ```bash
 sudo mkdir -p /home/respaldos/.ssh
-echo 'command="/usr/bin/rrsync -ro /srv/respaldos",restrict LLAVE_PUBLICA' | sudo tee /home/respaldos/.ssh/authorized_keys
+echo 'from="10.10.12.37",command="/usr/bin/rrsync -ro /srv/respaldos",restrict LLAVE_PUBLICA' | sudo tee /home/respaldos/.ssh/authorized_keys
 sudo chown -R respaldos:respaldos /home/respaldos/.ssh
 sudo chmod 700 /home/respaldos/.ssh && sudo chmod 600 /home/respaldos/.ssh/authorized_keys
 ```
 
 **En la PC**, probar y programar (`crontab -e`, cada 4 horas: solo trae lo nuevo, y si la PC estuvo apagada se pone al día):
 ```bash
-~/jalar-respaldos.sh                 # la primera vez pregunta por la huella de la VM: responder "yes"
+~/jalar-respaldos.sh                 # la PC de respaldos es 10.10.12.37 (la llave solo sirve desde esa IP)
 ls -lR ~/respaldos-vm | head
 ```
 ```
