@@ -40,6 +40,9 @@ public class UsuarioService {
         usuario.setUsername(request.username());
         // Se guarda encriptada como temporal para forzar el cambio en el primer ingreso.
         usuario.setPasswordTemporal(passwordEncoder.encode(passwordPlana));
+        // s_password es obligatoria: mientras haya temporal, el login usa la temporal; aqui va
+        // una aleatoria que nadie conoce hasta que el usuario defina la suya.
+        usuario.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
         usuario.setRol(request.rol());
         usuario.setActivo(true);
 
